@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -10,15 +11,82 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ==========================================
+// ZENDESK OAUTH CONFIGURATION
+// ==========================================
+
+let zendeskAccessToken = null;
+let zendeskTokenExpiresAt = 0;
+
+async function getZendeskAccessToken() {
+
+    if (
+        zendeskAccessToken &&
+        Date.now() < zendeskTokenExpiresAt - 60000
+    ) {
+        return zendeskAccessToken;
+    }
+
+    const response = await fetch(
+        `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/oauth/tokens`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                grant_type: 'client_credentials',
+                client_id: process.env.ZENDESK_CLIENT_ID,
+                client_secret: process.env.ZENDESK_CLIENT_SECRET,
+                scope: 'tickets:write'
+            })
+        }
+    );
+
+    const tokenData = await response.json();
+
+    if (!response.ok) {
+        console.error('Zendesk OAuth Error:', tokenData);
+        throw new Error('Zendesk authentication failed.');
+    }
+
+    zendeskAccessToken = tokenData.access_token;
+
+    zendeskTokenExpiresAt =
+        Date.now() + (tokenData.expires_in * 1000);
+
+    console.log('Zendesk OAuth authentication successful.');
+
+    return zendeskAccessToken;
+}
+
+// ==========================================
+// SOW INTAKE SUBMISSION
+// ==========================================
+
 app.post('/api/submit-intake', async (req, res) => {
+
     try {
+
         const data = req.body;
 
-        if (!data.fullName || !data.email || !data.companyName || !data.projectName || !data.businessProblem) {
-            return res.status(400).json({ error: 'Missing required fields.' });
+        // 1. Validate required fields
+
+        if (
+            !data.fullName ||
+            !data.email ||
+            !data.companyName ||
+            !data.projectName ||
+            !data.businessProblem
+        ) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required fields.'
+            });
         }
 
-        // Format all expanded questions into structured markdown for Zendesk & Sir Kevs' AI SOW Maker
+        // 2. Format SOW intake information
+
         const ticketBody = `=== COMPREHENSIVE SOW INTAKE SUBMISSION ===
 
 1. CONTACT & COMPANY
@@ -59,57 +127,99 @@ app.post('/api/submit-intake', async (req, res) => {
 • Expected Deliverables: ${data.deliverables || 'N/A'}
 • Acceptance Criteria & Exclusions: ${data.exclusions || 'N/A'}`;
 
+        // 3. Construct Zendesk ticket payload
+
         const zendeskData = {
             ticket: {
                 subject: `[SOW Intake] - ${data.companyName} - ${data.projectName}`,
+
                 requester: {
                     name: data.fullName,
                     email: data.email
                 },
+
                 comment: {
-                    body: ticketBody
+                    body: ticketBody,
+                    public: false
                 },
-                tags: ["sow_intake", "presale_lead", "pending_ai_sow"]
+
+                status: 'new',
+
+                tags: [
+                    'sow_intake',
+                    'presale_lead',
+                    'pending_ai_sow'
+                ]
             }
         };
 
-        const zendeskSubdomain = process.env.ZENDESK_SUBDOMAIN;
-        const zendeskEmail = process.env.ZENDESK_EMAIL;
-        const zendeskToken = process.env.ZENDESK_API_TOKEN;
+        // 4. Get Zendesk OAuth access token
 
-        if (!zendeskSubdomain || !zendeskEmail || !zendeskToken) {
-            console.warn('⚠️ Zendesk credentials missing in .env. Simulating ticket creation.');
-            console.log('Received SOW Data:', zendeskData);
-            return res.status(201).json({ success: true, message: 'Simulated ticket created successfully!' });
-        }
+        const accessToken = await getZendeskAccessToken();
 
-        const credentials = Buffer.from(`${zendeskEmail}/token:${zendeskToken}`).toString('base64');
-        const zendeskResponse = await fetch(`https://${zendeskSubdomain}.zendesk.com/api/v2/tickets.json`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Basic ${credentials}`
-            },
-            body: JSON.stringify(zendeskData)
-        });
+        // 5. Submit ticket to Zendesk
 
-        if (!zendeskResponse.ok) {
-            const errText = await zendeskResponse.text();
-            console.error('Zendesk API Error:', errText);
-            return res.status(502).json({ error: 'Failed to create Zendesk ticket.' });
-        }
+        const zendeskResponse = await fetch(
+            `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/api/v2/tickets.json`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify(zendeskData)
+            }
+        );
 
         const responseData = await zendeskResponse.json();
-        console.log(`✅ Zendesk ticket created successfully: #${responseData.ticket.id}`);
 
-        return res.status(201).json({ success: true, ticketId: responseData.ticket.id });
+        // 6. Handle Zendesk errors
+
+        if (!zendeskResponse.ok) {
+
+            console.error('Zendesk Ticket Error:', responseData);
+
+            return res.status(502).json({
+                success: false,
+                error: 'Failed to create Zendesk ticket.'
+            });
+        }
+
+        // 7. Return successful response
+
+        const ticket = responseData.ticket;
+
+        console.log(
+            `Zendesk ticket created successfully: #${ticket.id}`
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: 'SOW intake successfully submitted to Zendesk!',
+            ticketId: ticket.id,
+            ticketSubject: ticket.subject,
+            ticketStatus: ticket.status,
+            zendeskUrl:
+                `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${ticket.id}`
+        });
 
     } catch (error) {
+
         console.error('Server Error:', error);
-        return res.status(500).json({ error: 'Internal server error.' });
+
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error.'
+        });
     }
 });
 
+// ==========================================
+// START SERVER
+// ==========================================
+
 app.listen(PORT, () => {
-    console.log(`🚀 SOW Intake Server running at http://localhost:${PORT}`);
+    console.log(
+        `SOW Intake Server running at http://localhost:${PORT}`
+    );
 });
