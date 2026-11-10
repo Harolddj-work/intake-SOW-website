@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive SOW Intake Portal | Pre-Sales Operations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
+
+    <!-- Sticky Progress Bar Header -->
+    <header class="sticky top-0 z-50 bg-slate-900 text-white shadow-md">
+        <div class="max-w-3xl mx-auto px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+                <h1 id="headerTitle" class="text-xl font-bold tracking-tight">Step 1 of 6: Contact & Company</h1>
+                <p class="text-slate-400 text-xs">Complete all sections to generate your preliminary Statement of Work.</p>
+            </div>
+            <!-- Live Progress Indicator -->
+            <div class="flex items-center gap-3 w-full sm:w-48">
+                <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                    <div id="progressBar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 16%"></div>
+                </div>
+                <span id="progressText" class="text-xs font-semibold text-slate-300 whitespace-nowrap">Step 1 / 6</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Form Container -->
+    <main class="max-w-3xl mx-auto px-6 py-10 w-full flex-grow">
+        <div class="bg-white shadow-sm rounded-xl border border-slate-200 p-8">
+            
+            <form id="intakeForm" class="space-y-6">
+                
+                <!-- STEP 1: Contact & Company Info -->
+                <div class="form-step space-y-4" data-step="1">
+                    <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">1. Contact & Company Information</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Full Name *</label>
+                            <input type="text" id="fullName" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Business Email *</label>
+                            <input type="email" id="email" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Company / Organization Name *</label>
+                            <input type="text" id="companyName" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Key Stakeholders & Technical Contacts *</label>
+                            <input type="text" id="stakeholders" required placeholder="Names, roles, and contacts" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Business Objectives & Scope -->
+                <div class="form-step space-y-4 hidden" data-step="2">
+                    <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">2. Business Objectives & Scope</h2>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Project Name / Working Title *</label>
+                        <input type="text" id="projectName" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">What is the primary business problem or objective you want to address? *</label>
+                        <textarea id="businessProblem" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">What is your current process, and what challenges or limitations are you experiencing? *</label>
+                        <textarea id="currentProcess" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">What specific business processes, customer journeys, or use cases do you want to implement or improve? *</label>
+                        <textarea id="useCases" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">What are your expected business outcomes, and how will you measure project success? *</label>
+                        <textarea id="successMetrics" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                    </div>
+                </div>
+
+                <!-- STEP 3: Functional Requirements & Capabilities -->
+                <div class="form-step space-y-4 hidden" data-step="3">
+                    <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">3. Functional Requirements & Capabilities</h2>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">What specific functionalities or capabilities do you expect from the proposed solution? *</label>
+                        <textarea id="functionalities" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Intended Users & Estimated User Count *</label>
+                            <input type="text" id="intendedUsers" required placeholder="e.g., 50 support agents, 10k customers" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Required Communication Channels *</label>
+                            <input type="text" id="channels" required placeholder="Voice, SMS, Email, WhatsApp, Web Chat..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Automation vs. Human Intervention: Which processes should be automated and which require human approval? *</label>
+                        <textarea id="automationWorkflow" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Do you require AI capabilities, knowledge base integration, intelligent routing, or live-agent handover? *</label>
+                        <input type="text" id="aiCapabilities" required placeholder="Describe AI or routing needs..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- STEP 4: Technical, Integration & Data Requirements -->
+                <div class="form-step space-y-4 hidden" data-step="4">
+                    <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">4. Technical, Integration & Data Requirements</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Existing Platforms / Systems to Retain, Enhance, or Replace *</label>
+                            <input type="text" id="existingPlatforms" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">External Systems to Integrate & Data Exchanged *</label>
+                            <input type="text" id="externalIntegrations" required placeholder="APIs, webhooks, CRM, ERP..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Data Migration, Synchronization, or Reporting Requirements *</label>
+                            <input type="text" id="dataMigration" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Technical, Security, Compliance, or Infrastructure Restrictions *</label>
+                            <input type="text" id="securityCompliance" required placeholder="GDPR, HIPAA, SOC2, Cloud..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 5: Volumes, SLAs & Performance -->
+                <div class="form-step space-y-4 hidden" data-step="5">
+                    <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">5. Volumes, SLAs & Performance</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Expected Transaction, Call/Chat Volumes & Peak Demand *</label>
+                            <input type="text" id="volumes" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Operating Hours, Supported Languages & Geographic Coverage *</label>
+                            <input type="text" id="operatingHours" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Reporting, Dashboard, Analytics, Reliability, and Availability Requirements *</label>
+                        <input type="text" id="analytics" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- STEP 6: Timeline, Budget & Deliverables -->
+                <div class="form-step space-y-4 hidden" data-step="6">
+                    <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">6. Timeline, Budget & Deliverables</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Target Start Date *</label>
+                            <input type="date" id="startDate" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Go-Live Deadline *</label>
+                            <input type="text" id="timeline" required placeholder="e.g., Q3 2026" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Estimated Budget *</label>
+                            <select id="budgetRange" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                                <option value="">Select budget...</option>
+                                <option value="<$10k">Less than $10,000</option>
+                                <option value="$10k-$25k">$10,000 – $25,000</option>
+                                <option value="$25k-$50k">$25,000 – $50,000</option>
+                                <option value="$50k+">$50,000+</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">What deliverables do you expect (configuration, integration, training, etc.)? *</label>
+                        <textarea id="deliverables" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Acceptance Criteria, Testing Expectations, and Explicit Exclusions *</label>
+                        <textarea id="exclusions" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                    </div>
+                </div>
+
+                <!-- Wizard Navigation Buttons -->
+                <div class="flex items-center justify-between pt-6 border-t border-slate-200">
+                    <button type="button" id="prevBtn" onclick="changeStep(-1)" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 px-6 rounded-lg transition-colors text-sm">
+                        ← Back
+                    </button>
+                    <div class="ml-auto flex gap-3">
+                        <button type="button" id="nextBtn" onclick="changeStep(1)" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm text-sm">
+                            Next Section →
+                        </button>
+                        <button type="submit" id="submitBtn" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-6 rounded-lg transition-colors shadow-sm text-sm">
+                            Submit Intake Details ✓
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+
+            <!-- Success Notification State -->
+            <div id="successMessage" class="hidden text-center py-12 space-y-4">
+                <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">✓</div>
+                <h3 class="text-xl font-bold text-slate-900">Intake Submitted Successfully!</h3>
+                <p class="text-slate-600 max-w-md mx-auto text-sm">Thank you! Your responses have been recorded in Zendesk as a ticket, and a confirmation email has been dispatched. Sir Kevs' AI SOW Document Maker is ready to process your request.</p>
+                <button onclick="location.reload()" class="inline-block mt-4 text-sm text-blue-600 hover:underline font-medium">Submit another intake</button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-6 text-slate-400 text-xs">
+        &copy; 2026 Internal Pre-Sale Operations. All rights reserved.
+    </footer>
+
+    <!-- Multi-Step Wizard Script -->
+    <script>
+        let currentStep = 1;
+        const totalSteps = 6;
+
+        const stepTitles = [
+            "Contact & Company",
+            "Business Objectives & Scope",
+            "Functional Requirements",
+            "Technical & Integrations",
+            "Volumes, SLAs & Performance",
+            "Timeline, Budget & Deliverables"
+        ];
+
+        function showStep(step) {
+            document.querySelectorAll('.form-step').forEach(el => {
+                if (parseInt(el.getAttribute('data-step')) === step) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+
+            // Update Header & Progress Bar
+            document.getElementById('headerTitle').textContent = `Step ${step} of ${totalSteps}: ${stepTitles[step - 1]}`;
+            document.getElementById('progressText').textContent = `Step ${step} / ${totalSteps}`;
+            document.getElementById('progressBar').style.width = `${(step / totalSteps) * 100}%`;
+
+            // Toggle Navigation Buttons
+            document.getElementById('prevBtn').classList.toggle('hidden', step === 1);
+            document.getElementById('nextBtn').classList.toggle('hidden', step === totalSteps);
+            document.getElementById('submitBtn').classList.toggle('hidden', step !== totalSteps);
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function changeStep(direction) {
+            if (direction === 1) {
+                const currentSection = document.querySelector(`.form-step[data-step="${currentStep}"]`);
+                const requiredFields = currentSection.querySelectorAll('[required]');
+                let isValid = true;
+                requiredFields.forEach(field => {
+                    if (!field.value || field.value.trim() === '') {
+                        field.classList.add('border-red-500');
+                        isValid = false;
+                    } else {
+                        field.classList.remove('border-red-500');
+                    }
+                });
+
+                if (!isValid) {
+                    alert('Please fill in all required fields before proceeding.');
+                    return;
+                }
+            }
+
+            currentStep += direction;
+            if (currentStep < 1) currentStep = 1;
+            if (currentStep > totalSteps) currentStep = totalSteps;
+            showStep(currentStep);
+        }
+
+        // Form Final Submission Handler
+        document.getElementById('intakeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Transmitting to Zendesk...';
+
+            const payload = {
+                fullName: document.getElementById('fullName').value,
+                email: document.getElementById('email').value,
+                companyName: document.getElementById('companyName').value,
+                stakeholders: document.getElementById('stakeholders').value,
+                projectName: document.getElementById('projectName').value,
+                businessProblem: document.getElementById('businessProblem').value,
+                currentProcess: document.getElementById('currentProcess').value,
+                useCases: document.getElementById('useCases').value,
+                successMetrics: document.getElementById('successMetrics').value,
+                functionalities: document.getElementById('functionalities').value,
+                intendedUsers: document.getElementById('intendedUsers').value,
+                channels: document.getElementById('channels').value,
+                automationWorkflow: document.getElementById('automationWorkflow').value,
+                aiCapabilities: document.getElementById('aiCapabilities').value,
+                existingPlatforms: document.getElementById('existingPlatforms').value,
+                externalIntegrations: document.getElementById('externalIntegrations').value,
+                dataMigration: document.getElementById('dataMigration').value,
+                securityCompliance: document.getElementById('securityCompliance').value,
+                volumes: document.getElementById('volumes').value,
+                operatingHours: document.getElementById('operatingHours').value,
+                analytics: document.getElementById('analytics').value,
+                startDate: document.getElementById('startDate').value,
+                timeline: document.getElementById('timeline').value,
+                budgetRange: document.getElementById('budgetRange').value,
+                deliverables: document.getElementById('deliverables').value,
+                exclusions: document.getElementById('exclusions').value
+            };
+
+            try {
+                const response = await fetch('/api/submit-intake', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    document.getElementById('intakeForm').classList.add('hidden');
+                    document.getElementById('successMessage').classList.remove('hidden');
+                } else {
+                    alert('Submission failed. Please check your inputs.');
+                    btn.disabled = false;
+                    btn.textContent = 'Submit Intake Details ✓';
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Connection error. Please ensure your backend server is running.');
+                btn.disabled = false;
+                btn.textContent = 'Submit Intake Details ✓';
+            }
+        });
+    </script>
+</body>
+</html>
