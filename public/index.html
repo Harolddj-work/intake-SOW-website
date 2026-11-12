@@ -29,7 +29,7 @@
     <main class="max-w-3xl mx-auto px-6 py-10 w-full flex-grow">
         <div class="bg-white shadow-sm rounded-xl border border-slate-200 p-8">
             
-            <form id="intakeForm" class="space-y-6">
+            <form id="intakeForm" class="space-y-6" novalidate>
                 
                 <!-- STEP 1: Contact & Company Info -->
                 <div class="form-step space-y-4" data-step="1">
@@ -37,21 +37,21 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Full Name *</label>
-                            <input type="text" id="fullName" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="fullName" required maxlength="100" autocomplete="name" placeholder="e.g., Harold De Jesus" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Business Email *</label>
-                            <input type="email" id="email" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="email" id="email" required maxlength="254" autocomplete="email" inputmode="email" placeholder="name@example.com" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Company / Organization Name *</label>
-                            <input type="text" id="companyName" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="companyName" required maxlength="150" autocomplete="organization" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Key Stakeholders & Technical Contacts *</label>
-                            <input type="text" id="stakeholders" required placeholder="Names, roles, and contacts" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="stakeholders" required maxlength="500" placeholder="Names, roles, and contacts" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                     </div>
                 </div>
@@ -61,23 +61,24 @@
                     <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">2. Business Objectives & Scope</h2>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Project Name / Working Title *</label>
-                        <input type="text" id="projectName" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        <input type="text" id="projectName" required maxlength="150" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">What is the primary business problem or objective you want to address? *</label>
-                        <textarea id="businessProblem" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                        <textarea id="businessProblem" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="5000"></textarea>
+                        <!-- AI clarification panels are created consistently for all four questions. -->
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">What is your current process, and what challenges or limitations are you experiencing? *</label>
-                        <textarea id="currentProcess" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                        <textarea id="currentProcess" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="5000"></textarea>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">What specific business processes, customer journeys, or use cases do you want to implement or improve? *</label>
-                        <textarea id="useCases" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                        <textarea id="useCases" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="5000"></textarea>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">What are your expected business outcomes, and how will you measure project success? *</label>
-                        <textarea id="successMetrics" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                        <textarea id="successMetrics" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="5000"></textarea>
                     </div>
                 </div>
 
@@ -86,25 +87,25 @@
                     <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">3. Functional Requirements & Capabilities</h2>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">What specific functionalities or capabilities do you expect from the proposed solution? *</label>
-                        <textarea id="functionalities" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                        <textarea id="functionalities" rows="3" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="5000"></textarea>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Intended Users & Estimated User Count *</label>
-                            <input type="text" id="intendedUsers" required placeholder="e.g., 50 support agents, 10k customers" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="intendedUsers" required maxlength="150" placeholder="e.g., 50 support agents, 10k customers" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Required Communication Channels *</label>
-                            <input type="text" id="channels" required placeholder="Voice, SMS, Email, WhatsApp, Web Chat..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="channels" required maxlength="200" placeholder="Voice, SMS, Email, WhatsApp, Web Chat..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Automation vs. Human Intervention: Which processes should be automated and which require human approval? *</label>
-                        <textarea id="automationWorkflow" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                        <textarea id="automationWorkflow" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="5000"></textarea>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Do you require AI capabilities, knowledge base integration, intelligent routing, or live-agent handover? *</label>
-                        <input type="text" id="aiCapabilities" required placeholder="Describe AI or routing needs..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        <input type="text" id="aiCapabilities" required placeholder="Describe AI or routing needs..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                     </div>
                 </div>
 
@@ -114,21 +115,21 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Existing Platforms / Systems to Retain, Enhance, or Replace *</label>
-                            <input type="text" id="existingPlatforms" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="existingPlatforms" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">External Systems to Integrate & Data Exchanged *</label>
-                            <input type="text" id="externalIntegrations" required placeholder="APIs, webhooks, CRM, ERP..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="externalIntegrations" required placeholder="APIs, webhooks, CRM, ERP..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Data Migration, Synchronization, or Reporting Requirements *</label>
-                            <input type="text" id="dataMigration" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="dataMigration" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Technical, Security, Compliance, or Infrastructure Restrictions *</label>
-                            <input type="text" id="securityCompliance" required placeholder="GDPR, HIPAA, SOC2, Cloud..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="securityCompliance" required placeholder="GDPR, HIPAA, SOC2, Cloud..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                     </div>
                 </div>
@@ -139,16 +140,16 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Expected Transaction, Call/Chat Volumes & Peak Demand *</label>
-                            <input type="text" id="volumes" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="volumes" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Operating Hours, Supported Languages & Geographic Coverage *</label>
-                            <input type="text" id="operatingHours" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="operatingHours" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Reporting, Dashboard, Analytics, Reliability, and Availability Requirements *</label>
-                        <input type="text" id="analytics" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        <input type="text" id="analytics" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                     </div>
                 </div>
 
@@ -158,11 +159,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Target Start Date *</label>
-                            <input type="date" id="startDate" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="date" id="startDate" required max="9999-12-31" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Go-Live Deadline *</label>
-                            <input type="text" id="timeline" required placeholder="e.g., Q3 2026" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="text" id="timeline" required maxlength="120" placeholder="e.g., Q3 2026" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Estimated Budget *</label>
@@ -177,11 +178,11 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">What deliverables do you expect (configuration, integration, training, etc.)? *</label>
-                        <textarea id="deliverables" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                        <textarea id="deliverables" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="5000"></textarea>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Acceptance Criteria, Testing Expectations, and Explicit Exclusions *</label>
-                        <textarea id="exclusions" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+                        <textarea id="exclusions" rows="2" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="5000"></textarea>
                     </div>
                 </div>
 
@@ -206,7 +207,7 @@
             <div id="successMessage" class="hidden text-center py-12 space-y-4">
                 <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">✓</div>
                 <h3 class="text-xl font-bold text-slate-900">Intake Submitted Successfully!</h3>
-                <p class="text-slate-600 max-w-md mx-auto text-sm">Thank you! Your responses have been recorded in Zendesk as a ticket, and a confirmation email has been dispatched. Sir Kevs' AI SOW Document Maker is ready to process your request.</p>
+                <p id="successSubmissionDetails" class="text-slate-600 max-w-md mx-auto text-sm">Your intake submission has been received.</p>
                 <button onclick="location.reload()" class="inline-block mt-4 text-sm text-blue-600 hover:underline font-medium">Submit another intake</button>
             </div>
 
@@ -222,6 +223,111 @@
     <script>
         let currentStep = 1;
         const totalSteps = 6;
+
+        // AI review is limited to the detailed narrative fields. Short factual
+        // fields (names, counts, channels, dates, budgets, etc.) use required-field
+        // validation only and do not trigger OpenAI calls.
+        const EVALUATION_QUESTION_IDS_BY_STEP = {
+            2: ['businessProblem', 'currentProcess', 'useCases', 'successMetrics'],
+            3: ['functionalities', 'automationWorkflow'],
+            6: ['deliverables', 'exclusions']
+        };
+
+        const EVALUATION_QUESTION_IDS = Object.values(EVALUATION_QUESTION_IDS_BY_STEP).flat();
+        const EVALUATION_QUESTION_STEP = Object.fromEntries(
+            Object.entries(EVALUATION_QUESTION_IDS_BY_STEP).flatMap(([step, ids]) =>
+                ids.map(questionId => [questionId, Number(step)])
+            )
+        );
+        const EVALUATION_QUESTION_LABELS = {
+            businessProblem: 'Business Problem / Objective',
+            currentProcess: 'Current Process & Challenges',
+            useCases: 'Use Cases / Customer Journeys',
+            successMetrics: 'Success Metrics',
+            functionalities: 'Expected Functionalities',
+            automationWorkflow: 'Automation & Human Workflow',
+            deliverables: 'Expected Deliverables',
+            exclusions: 'Acceptance Criteria & Exclusions'
+        };
+
+        const aiReviewStates = Object.fromEntries(EVALUATION_QUESTION_IDS.map(questionId => [
+            questionId,
+            {
+                followUpAsked: false,
+                needsManualReview: false,
+                answerChanged: false,
+                lastEvaluatedAnswer: null,
+                lastEvaluation: null
+            }
+        ]));
+
+        function getEvaluationQuestionIds(step) {
+            return EVALUATION_QUESTION_IDS_BY_STEP[step] || [];
+        }
+
+        function getEvidenceQuestionIdsForStep(step) {
+            return EVALUATION_QUESTION_IDS.filter(questionId =>
+                EVALUATION_QUESTION_STEP[questionId] <= step
+            );
+        }
+
+        function invalidateEvaluationResultsFromStep(step, preserveActiveClarification = false) {
+            // The cached result is no longer safe to reuse after an answer changes,
+            // but keep the last evaluation and its panel visible for the session.
+            // The next section review will replace it with a fresh evaluation.
+            Object.keys(EVALUATION_QUESTION_IDS_BY_STEP)
+                .map(Number)
+                .filter(targetStep => targetStep >= step)
+                .forEach(targetStep => batchEvaluationCache.delete(targetStep));
+
+            EVALUATION_QUESTION_IDS
+                .filter(questionId => EVALUATION_QUESTION_STEP[questionId] >= step)
+                .forEach(questionId => {
+                    const reviewState = aiReviewStates[questionId];
+                    if (!reviewState.lastEvaluation) return;
+
+                    reviewState.answerChanged = true;
+                    const panel = document.getElementById(`${questionId}FollowUpContainer`);
+                    if (!panel) return;
+
+                    // Sufficient answers do not need a success panel. Keep only
+                    // panels that contain an active clarification workflow.
+                    if (reviewState.lastEvaluation.sufficient && !clarificationSubmitted.has(questionId)) {
+                        panel.classList.add('hidden');
+                        return;
+                    }
+                    if (panel.classList.contains('hidden')) return;
+
+                    const ui = getOrCreateFollowUpUI(questionId);
+                    if (reviewState.lastEvaluation.sufficient) {
+                        panel.classList.add('hidden');
+                    } else if (clarificationSubmitted.has(questionId)) {
+                        ui.heading.textContent = 'Clarification Submitted';
+                        setFollowUpTheme(ui, 'submitted');
+                    }
+                    ui.status.textContent = 'Your answers have changed since this review. The AI review will be refreshed when you continue.';
+                });
+
+            // Editing an earlier answer can change whether a later question still
+            // needs clarification. Clear only the navigation lock, not the review UI.
+            if (
+                !preserveActiveClarification &&
+                clarificationFlowActiveStep !== null &&
+                clarificationFlowActiveStep >= step
+            ) {
+                clarificationFlowActiveStep = null;
+                currentClarificationQuestionId = null;
+                lockSectionNextButton(false);
+            }
+        }
+
+        // Cache evaluations per section so returning without edits does not
+        // make another API call. Earlier-section evidence is part of each snapshot.
+        const batchEvaluationCache = new Map();
+        const clarificationAnswerValues = new Map();
+        const clarificationSubmitted = new Set();
+        let clarificationFlowActiveStep = null;
+        let currentClarificationQuestionId = null;
 
         const stepTitles = [
             "Contact & Company",
@@ -251,41 +357,729 @@
             document.getElementById('nextBtn').classList.toggle('hidden', step === totalSteps);
             document.getElementById('submitBtn').classList.toggle('hidden', step !== totalSteps);
 
+            // A clarification locks only the section it belongs to. Back navigation
+            // to other sections remains available.
+            lockSectionNextButton(clarificationFlowActiveStep === step);
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function changeStep(direction) {
-            if (direction === 1) {
-                const currentSection = document.querySelector(`.form-step[data-step="${currentStep}"]`);
-                const requiredFields = currentSection.querySelectorAll('[required]');
-                let isValid = true;
-                requiredFields.forEach(field => {
-                    if (!field.value || field.value.trim() === '') {
-                        field.classList.add('border-red-500');
-                        isValid = false;
-                    } else {
-                        field.classList.remove('border-red-500');
-                    }
+        async function evaluateIntakeAnswers(answers, questionIds, evidenceQuestionIds = EVALUATION_QUESTION_IDS) {
+            const response = await fetch('/api/evaluate-answers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ answers, questionIds, evidenceQuestionIds })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success || !result.evaluations) {
+                throw new Error(result.error || 'AI batch evaluation failed.');
+            }
+
+            return result.evaluations;
+        }
+
+
+            function getOrCreateFollowUpUI(questionId) {
+                const field = document.getElementById(questionId);
+                if (!field) {
+                    throw new Error(`Field not found: ${questionId}`);
+                }
+
+                let container = document.getElementById(`${questionId}FollowUpContainer`);
+
+                if (container) {
+                    return {
+                        container,
+                        heading: container.querySelector('p.font-semibold'),
+                        question: container.querySelector('.ai-follow-up-question'),
+                        label: container.querySelector('.ai-follow-up-label'),
+                        answer: container.querySelector('.ai-follow-up-answer'),
+                        status: container.querySelector('.ai-follow-up-status'),
+                        submitButton: container.querySelector('.ai-follow-up-submit'),
+                        editButton: container.querySelector('.ai-follow-up-edit')
+                    };
+                }
+
+                container = document.createElement('div');
+                container.id = `${questionId}FollowUpContainer`;
+                container.className =
+                    'hidden mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4';
+
+                const heading = document.createElement('p');
+                heading.className = 'font-semibold text-amber-700 mb-2';
+                heading.textContent = 'Clarification Required';
+
+                const question = document.createElement('p');
+                question.className = 'ai-follow-up-question text-sm text-slate-800 mb-3';
+
+                const label = document.createElement('label');
+                label.className = 'ai-follow-up-label block text-sm font-medium text-slate-700 mb-1';
+                label.textContent = 'Your clarification';
+
+                const answer = document.createElement('textarea');
+                answer.rows = 3;
+                answer.placeholder = 'Please provide additional details...';
+                answer.className =
+                    'ai-follow-up-answer w-full rounded-lg border border-slate-300 px-4 py-2 text-sm';
+
+                const status = document.createElement('p');
+                status.className = 'ai-follow-up-status text-xs text-slate-600 mt-2';
+                status.setAttribute('aria-live', 'polite');
+
+                const submitButton = document.createElement('button');
+                submitButton.type = 'button';
+                submitButton.className =
+                    'ai-follow-up-submit mt-3 bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors';
+                submitButton.textContent = 'Submit clarification →';
+                submitButton.addEventListener('click', () => submitClarification(questionId));
+
+                const editButton = document.createElement('button');
+                editButton.type = 'button';
+                editButton.className =
+                    'ai-follow-up-edit hidden mt-2 text-sm font-medium text-amber-800 hover:underline';
+                editButton.textContent = 'Edit clarification';
+                editButton.addEventListener('click', () => {
+                    const step = EVALUATION_QUESTION_STEP[questionId];
+                    const previousEvaluation = aiReviewStates[questionId].lastEvaluation || {};
+                    clarificationSubmitted.delete(questionId);
+                    invalidateEvaluationResultsFromStep(step);
+                    clarificationFlowActiveStep = step;
+                    currentClarificationQuestionId = questionId;
+                    lockSectionNextButton(currentStep === step);
+                    activateClarificationQuestion(questionId, {
+                        ...previousEvaluation,
+                        followUpQuestion: previousEvaluation.followUpQuestion ||
+                            'Please review the information below and add or correct anything that is missing.'
+                    });
                 });
 
-                if (!isValid) {
-                    alert('Please fill in all required fields before proceeding.');
+                answer.value = clarificationAnswerValues.get(questionId) || '';
+                answer.addEventListener('input', () => {
+                    const reviewState = aiReviewStates[questionId];
+                    const step = EVALUATION_QUESTION_STEP[questionId];
+                    clarificationAnswerValues.set(questionId, answer.value);
+                    reviewState.needsManualReview = false;
+                    reviewState.answerChanged = true;
+                    invalidateEvaluationResultsFromStep(step, true);
+
+                    // Keep the actual text even when an edit invalidates the old
+                    // evaluation. It will be included in the next batch review.
+                    if (clarificationSubmitted.has(questionId)) {
+                        clarificationSubmitted.delete(questionId);
+                        clarificationFlowActiveStep = step;
+                        currentClarificationQuestionId = questionId;
+                        lockSectionNextButton(currentStep === step);
+                        collapseOrHideClarificationPanels(getEvaluationQuestionIds(step));
+                        container.classList.remove('hidden');
+                        showClarificationInput(questionId);
+                    }
+
+                    status.textContent =
+                        'Your clarification has changed. Submit it to continue.';
+                });
+
+                container.append(
+                    heading,
+                    question,
+                    label,
+                    answer,
+                    submitButton,
+                    editButton,
+                    status
+                );
+                field.insertAdjacentElement('afterend', container);
+
+                return { container, heading, question, label, answer, status, submitButton, editButton };
+            }
+
+            function lockSectionNextButton(locked) {
+                const nextBtn = document.getElementById('nextBtn');
+                nextBtn.disabled = locked;
+                nextBtn.textContent = locked
+                    ? 'Complete clarifications to continue'
+                    : 'Next Section →';
+                nextBtn.classList.toggle('opacity-50', locked);
+                nextBtn.classList.toggle('cursor-not-allowed', locked);
+
+                // Step 6 uses the final Submit button instead of Next Section.
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn && currentStep === totalSteps) {
+                    submitBtn.disabled = locked;
+                    submitBtn.textContent = locked
+                        ? 'Complete clarifications to submit'
+                        : 'Submit Intake Details ✓';
+                    submitBtn.classList.toggle('opacity-50', locked);
+                    submitBtn.classList.toggle('cursor-not-allowed', locked);
+                }
+            }
+
+            function showClarificationInput(questionId) {
+                const ui = getOrCreateFollowUpUI(questionId);
+                ui.answer.readOnly = false;
+                ui.question.classList.remove('hidden');
+                ui.label.classList.remove('hidden');
+                ui.answer.classList.remove('hidden');
+                ui.submitButton.classList.remove('hidden');
+                ui.editButton.classList.add('hidden');
+            }
+
+            function collapseOrHideClarificationPanels(questionIds = EVALUATION_QUESTION_IDS) {
+                questionIds.forEach(questionId => {
+                    const container = document.getElementById(`${questionId}FollowUpContainer`);
+                    if (!container) return;
+
+                    const evaluation = aiReviewStates[questionId].lastEvaluation;
+                    if (evaluation?.sufficient) {
+                        renderCompletedReview(questionId, evaluation);
+                        return;
+                    }
+
+                    if (clarificationSubmitted.has(questionId)) {
+                        renderSubmittedClarification(questionId);
+                        return;
+                    }
+
+                    if (questionId !== currentClarificationQuestionId) {
+                        container.classList.add('hidden');
+                    }
+                });
+            }
+
+            function collectEvaluationAnswers(questionIds = EVALUATION_QUESTION_IDS) {
+                return Object.fromEntries(questionIds.map(questionId => {
+                    const field = document.getElementById(questionId);
+                    const panel = document.getElementById(`${questionId}FollowUpContainer`);
+                    const clarificationAnswer = clarificationSubmitted.has(questionId)
+                        ? (panel?.querySelector('.ai-follow-up-answer')?.value.trim() ||
+                            clarificationAnswerValues.get(questionId) || '')
+                        : '';
+
+                    return [questionId, {
+                        originalAnswer: field.value.trim(),
+                        clarificationAnswer
+                    }];
+                }));
+            }
+
+            function createAnswerSnapshot(answers, questionIds) {
+                return JSON.stringify(questionIds.map(questionId => ({
+                    questionId,
+                    originalAnswer: answers[questionId].originalAnswer,
+                    clarificationAnswer: answers[questionId].clarificationAnswer
+                })));
+            }
+
+            function getEvidenceStatusText(evaluation) {
+                const evidenceSources = (evaluation.coveredBy || []).map(source => {
+                    const answerType = source.source === 'originalAnswer'
+                        ? 'original answer'
+                        : 'clarification answer';
+                    return `${EVALUATION_QUESTION_LABELS[source.questionId] || source.questionId} (${answerType})`;
+                });
+
+                return evidenceSources.length
+                    ? `This question is sufficiently covered by: ${[...new Set(evidenceSources)].join(', ')}. You can still edit your answer.`
+                    : 'Your answer has been evaluated successfully. You can still edit your clarification.';
+            }
+
+
+            function setFollowUpTheme(ui, variant) {
+                const panelClasses = [
+                    'border-amber-300', 'bg-amber-50',
+                    'border-emerald-300', 'bg-emerald-50',
+                    'border-blue-300', 'bg-blue-50'
+                ];
+                const headingClasses = ['text-amber-700', 'text-emerald-700', 'text-blue-700'];
+                const statusClasses = ['text-slate-600', 'text-amber-800', 'text-emerald-700', 'text-blue-700'];
+
+                ui.container.classList.remove(...panelClasses);
+                ui.heading.classList.remove(...headingClasses);
+                ui.status.classList.remove(...statusClasses);
+
+                if (variant === 'complete') {
+                    ui.container.classList.add('border-emerald-300', 'bg-emerald-50');
+                    ui.heading.classList.add('text-emerald-700');
+                    ui.status.classList.add('text-emerald-700');
+                } else if (variant === 'submitted') {
+                    ui.container.classList.add('border-blue-300', 'bg-blue-50');
+                    ui.heading.classList.add('text-blue-700');
+                    ui.status.classList.add('text-blue-700');
+                } else {
+                    ui.container.classList.add('border-amber-300', 'bg-amber-50');
+                    ui.heading.classList.add('text-amber-700');
+                    ui.status.classList.add('text-amber-800');
+                }
+            }
+
+            function renderCompletedReview(questionId, evaluation) {
+                // A successful AI evaluation should remain invisible unless the
+                // client has already submitted a clarification. In that case,
+                // always show the submitted confirmation and Edit clarification.
+                if (clarificationSubmitted.has(questionId)) {
+                    renderSubmittedClarification(questionId);
+                    return;
+                }
+
+                const ui = getOrCreateFollowUpUI(questionId);
+                ui.heading.textContent = 'AI Review Complete';
+                ui.question.classList.add('hidden');
+                ui.label.classList.add('hidden');
+                ui.answer.classList.add('hidden');
+                ui.submitButton.classList.add('hidden');
+                ui.editButton.classList.add('hidden');
+                ui.status.textContent = getEvidenceStatusText(evaluation);
+
+                // Successful AI reviews are intentionally silent in the UI.
+                ui.container.classList.add('hidden');
+            }
+
+            function renderSubmittedClarification(questionId) {
+                const ui = getOrCreateFollowUpUI(questionId);
+                ui.heading.textContent = 'Clarification Submitted';
+                ui.question.classList.add('hidden');
+                ui.label.classList.add('hidden');
+                ui.answer.classList.add('hidden');
+                ui.submitButton.classList.add('hidden');
+                ui.editButton.textContent = 'Edit clarification';
+                ui.editButton.classList.remove('hidden');
+                ui.status.textContent = 'Your clarification has been submitted. Some information may still need review by the project team.';
+                ui.container.classList.remove('hidden');
+                setFollowUpTheme(ui, 'submitted');
+            }
+
+            function updateReviewStates(evaluations, answers, questionIds) {
+                questionIds.forEach(questionId => {
+                    const evaluation = evaluations[questionId];
+                    if (!evaluation) {
+                        throw new Error(`No AI evaluation returned for ${questionId}.`);
+                    }
+
+                    const reviewState = aiReviewStates[questionId];
+                    const followUpAnswer = answers[questionId].clarificationAnswer;
+
+                    reviewState.lastEvaluatedAnswer = [
+                        answers[questionId].originalAnswer,
+                        followUpAnswer ? `Client clarification: ${followUpAnswer}` : ''
+                    ].filter(Boolean).join('\n\n');
+                    reviewState.lastEvaluation = evaluation;
+                    reviewState.answerChanged = false;
+                    reviewState.needsManualReview =
+                        !evaluation.sufficient && clarificationSubmitted.has(questionId);
+
+                    const ui = getOrCreateFollowUpUI(questionId);
+                    if (evaluation.sufficient) {
+                        renderCompletedReview(questionId, evaluation);
+                    } else if (clarificationSubmitted.has(questionId)) {
+                        renderSubmittedClarification(questionId);
+                    } else {
+                        ui.heading.textContent = 'Clarification Required';
+                        ui.question.textContent = evaluation.followUpQuestion ||
+                            'Could you provide additional details?';
+                        ui.status.textContent = 'Please answer this clarification before proceeding.';
+                        setFollowUpTheme(ui, 'clarification');
+                    }
+
+                    console.log(`Batch evaluation for ${questionId}:`, evaluation);
+                });
+            }
+
+            function getPendingClarificationIds(evaluations, questionIds) {
+                return questionIds.filter(questionId =>
+                    !evaluations[questionId].sufficient &&
+                    !clarificationSubmitted.has(questionId)
+                );
+            }
+
+            function renderCrossCoveredAnswerReviews(questionIds = getEvaluationQuestionIds(currentStep)) {
+                questionIds.forEach(questionId => {
+                    const evaluation = aiReviewStates[questionId].lastEvaluation;
+                    if (!evaluation?.sufficient) return;
+
+                    const sources = (evaluation.coveredBy || []).filter(source =>
+                        source.questionId !== questionId &&
+                        Array.isArray(source.coveredInformation) &&
+                        source.coveredInformation.some(detail => String(detail).trim())
+                    );
+                    if (!sources.length) return;
+
+                    const ui = getOrCreateFollowUpUI(questionId);
+                    const details = [...new Set(sources.flatMap(source =>
+                        source.coveredInformation.map(detail => String(detail).trim()).filter(Boolean)
+                    ))];
+                    const sourceNames = [...new Set(sources.map(source => {
+                        const kind = source.source === 'clarificationAnswer'
+                            ? 'clarification answer'
+                            : 'original answer';
+                        return `${EVALUATION_QUESTION_LABELS[source.questionId] || source.questionId} (${kind})`;
+                    }))];
+
+                    // Keep a client's own submitted clarification. Otherwise refresh
+                    // this read-only summary from the latest cross-question evidence.
+                    if (!clarificationSubmitted.has(questionId) &&
+                        (ui.answer.readOnly || !ui.answer.value.trim())) {
+                        ui.answer.value = details.map(detail => `• ${detail}`).join('\n');
+                    }
+
+                    // Cross-question evidence stays internal. However, if this
+                    // question already has a submitted clarification, preserve its
+                    // confirmation panel instead of hiding it.
+                    if (clarificationSubmitted.has(questionId)) {
+                        renderSubmittedClarification(questionId);
+                    } else {
+                        ui.container.classList.add('hidden');
+                    }
+                });
+            }
+
+            function activateClarificationQuestion(questionId, evaluation) {
+                const step = EVALUATION_QUESTION_STEP[questionId];
+                collapseOrHideClarificationPanels(getEvaluationQuestionIds(step));
+
+                const ui = getOrCreateFollowUpUI(questionId);
+
+                ui.heading.textContent = 'Clarification Required';
+                setFollowUpTheme(ui, 'clarification');
+                ui.question.textContent = evaluation.followUpQuestion ||
+                    'Could you provide additional details?';
+
+                // Reuse details already supplied in other answers. Only add this
+                // prefill when the client has not already typed a clarification.
+                if (!ui.answer.value.trim()) {
+                    const prefilledDetails = [...new Set(
+                        (evaluation.coveredBy || [])
+                            .filter(source => source.questionId !== questionId)
+                            .flatMap(source => source.coveredInformation || [])
+                            .map(detail => detail.trim())
+                            .filter(Boolean)
+                    )];
+
+                    if (prefilledDetails.length) {
+                        ui.answer.value = prefilledDetails.map(detail => `• ${detail}`).join('\n');
+                        clarificationAnswerValues.set(questionId, ui.answer.value);
+                        ui.status.textContent =
+                            'We found relevant details in your previous answers and added them below. Please add any missing information, then submit.';
+                    } else {
+                        ui.status.textContent =
+                            'Please answer this clarification before proceeding.';
+                    }
+                } else {
+                    ui.status.textContent =
+                        'Review your clarification, add any missing details, then submit.';
+                }
+
+                showClarificationInput(questionId);
+                ui.submitButton.disabled = false;
+                ui.submitButton.textContent = 'Submit clarification →';
+                ui.container.classList.remove('hidden');
+                currentClarificationQuestionId = questionId;
+                clarificationFlowActiveStep = step;
+
+                const field = document.getElementById(questionId);
+                field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                window.setTimeout(() => ui.answer.focus(), 350);
+            }
+
+            function completeClarificationFlow(lastQuestionId, step, questionIds) {
+                clarificationFlowActiveStep = null;
+                currentClarificationQuestionId = null;
+                lockSectionNextButton(false);
+                collapseOrHideClarificationPanels(questionIds);
+                renderCrossCoveredAnswerReviews(questionIds);
+
+                if (!lastQuestionId) return;
+
+                const evaluation = aiReviewStates[lastQuestionId].lastEvaluation;
+                if (evaluation?.sufficient) {
+                    renderCompletedReview(lastQuestionId, evaluation);
+                } else {
+                    renderSubmittedClarification(lastQuestionId);
+                }
+            }
+
+            async function submitClarification(questionId) {
+                const ui = getOrCreateFollowUpUI(questionId);
+                const clarificationText = ui.answer.value.trim();
+                const step = EVALUATION_QUESTION_STEP[questionId];
+                const questionIds = getEvaluationQuestionIds(step);
+
+                if (!clarificationText) {
+                    alert('Please enter your clarification before submitting it.');
+                    ui.answer.focus();
+                    return;
+                }
+
+                const submitButton = ui.submitButton;
+                const previousButtonText = submitButton.textContent;
+                submitButton.disabled = true;
+                submitButton.textContent = 'Reviewing clarification...';
+
+                clarificationAnswerValues.set(questionId, clarificationText);
+                clarificationSubmitted.add(questionId);
+                clarificationFlowActiveStep = step;
+                currentClarificationQuestionId = questionId;
+                lockSectionNextButton(currentStep === step);
+
+                try {
+                    const evidenceQuestionIds = getEvidenceQuestionIdsForStep(step);
+                    const answers = collectEvaluationAnswers(evidenceQuestionIds);
+                    const answerSnapshot = createAnswerSnapshot(answers, evidenceQuestionIds);
+                    const evaluations = await evaluateIntakeAnswers(answers, questionIds, evidenceQuestionIds);
+
+                    batchEvaluationCache.set(step, { snapshot: answerSnapshot, evaluations });
+                    updateReviewStates(evaluations, answers, questionIds);
+                    collapseOrHideClarificationPanels(questionIds);
+                    renderCrossCoveredAnswerReviews(questionIds);
+
+                    const pendingQuestionIds = getPendingClarificationIds(evaluations, questionIds);
+                    if (pendingQuestionIds.length) {
+                        activateClarificationQuestion(
+                            pendingQuestionIds[0],
+                            evaluations[pendingQuestionIds[0]]
+                        );
+                    } else {
+                        completeClarificationFlow(questionId, step, questionIds);
+                    }
+                } catch (error) {
+                    console.error('Clarification Submission Error:', error);
+                    clarificationSubmitted.delete(questionId);
+                    clarificationFlowActiveStep = step;
+                    currentClarificationQuestionId = questionId;
+                    ui.container.classList.remove('hidden');
+                    ui.status.textContent =
+                        error.message || 'Unable to review this clarification. Please try again.';
+                    lockSectionNextButton(currentStep === step);
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = previousButtonText;
+                }
+            }
+
+            async function reviewEvaluationSection(step) {
+                const questionIds = getEvaluationQuestionIds(step);
+                if (!questionIds.length) return { requiresClarification: false };
+                if (clarificationFlowActiveStep === step) {
+                    return { requiresClarification: true };
+                }
+
+                const evidenceQuestionIds = getEvidenceQuestionIdsForStep(step);
+                const answers = collectEvaluationAnswers(evidenceQuestionIds);
+                const answerSnapshot = createAnswerSnapshot(answers, evidenceQuestionIds);
+                const cached = batchEvaluationCache.get(step);
+                let evaluations;
+
+                if (cached && cached.snapshot === answerSnapshot) {
+                    evaluations = cached.evaluations;
+                    console.log(`Using cached batch AI evaluation for Step ${step}.`);
+                } else {
+                    console.log(`Evaluating detailed answers for Step ${step}.`);
+                    evaluations = await evaluateIntakeAnswers(answers, questionIds, evidenceQuestionIds);
+                    batchEvaluationCache.set(step, { snapshot: answerSnapshot, evaluations });
+                }
+
+                updateReviewStates(evaluations, answers, questionIds);
+                collapseOrHideClarificationPanels(questionIds);
+                renderCrossCoveredAnswerReviews(questionIds);
+
+                const pendingQuestionIds = getPendingClarificationIds(evaluations, questionIds);
+                if (pendingQuestionIds.length) {
+                    clarificationFlowActiveStep = step;
+                    activateClarificationQuestion(
+                        pendingQuestionIds[0],
+                        evaluations[pendingQuestionIds[0]]
+                    );
+                    return { requiresClarification: true };
+                }
+
+                if (clarificationFlowActiveStep === step) {
+                    clarificationFlowActiveStep = null;
+                    currentClarificationQuestionId = null;
+                }
+
+                return { requiresClarification: false };
+            }
+
+            async function changeStep(direction) {
+                // Required-field validation remains local and does not call the AI.
+                if (direction === 1) {
+                    const currentSection = document.querySelector(
+                        `.form-step[data-step="${currentStep}"]`
+                    );
+                    const requiredFields = currentSection.querySelectorAll('[required]');
+                    let isValid = true;
+
+                    let firstInvalidField = null;
+                    requiredFields.forEach(field => {
+                        const hasValue = typeof field.value === 'string'
+                            ? field.value.trim() !== ''
+                            : Boolean(field.value);
+                        const fieldIsValid = hasValue && field.checkValidity();
+                        field.classList.toggle('border-red-500', !fieldIsValid);
+                        if (!fieldIsValid && !firstInvalidField) firstInvalidField = field;
+                    });
+
+                    if (firstInvalidField) {
+                        firstInvalidField.reportValidity();
+                        firstInvalidField.focus();
+                        if (!firstInvalidField.value.trim()) {
+                            alert('Please fill in all required fields before proceeding.');
+                        }
+                        return;
+                    }
+                }
+
+                if (direction === 1 && getEvaluationQuestionIds(currentStep).length) {
+                    if (clarificationFlowActiveStep === currentStep) return;
+
+                    const nextBtn = document.getElementById('nextBtn');
+                    nextBtn.disabled = true;
+                    nextBtn.textContent = 'Reviewing answers...';
+
+                    try {
+                        const review = await reviewEvaluationSection(currentStep);
+                        if (review.requiresClarification) return;
+                    } catch (error) {
+                        console.error('AI Batch Evaluation Error:', error);
+                        alert(error.message || 'Unable to evaluate your answers. Please try again.');
+                        return;
+                    } finally {
+                        lockSectionNextButton(clarificationFlowActiveStep === currentStep);
+                    }
+                }
+
+                // Dynamic clarification panels remain in the DOM, and answer text
+                // is mirrored in memory so moving between sections does not erase it.
+                currentStep += direction;
+                if (currentStep < 1) currentStep = 1;
+                if (currentStep > totalSteps) currentStep = totalSteps;
+                showStep(currentStep);
+            }
+
+            // Editing a reviewed answer invalidates its own section and every
+            // later section that may use it as evidence. Earlier reviews stay valid.
+            EVALUATION_QUESTION_IDS.forEach(questionId => {
+                const field = document.getElementById(questionId);
+                // AI-reviewed narrative fields may be blank when another answer
+                // already supplies the required information. The AI decides whether
+                // the evidence is sufficient; all other required fields stay local.
+                field.removeAttribute('required');
+                field.addEventListener('input', () => {
+                    const step = EVALUATION_QUESTION_STEP[questionId];
+                    invalidateEvaluationResultsFromStep(step);
+                    // Do not clear clarificationSubmitted or clarificationAnswerValues:
+                    // the user's work must survive edits and section navigation.
+                });
+            });
+
+        const intakeForm = document.getElementById('intakeForm');
+        let intakeSubmissionInProgress = false;
+
+        // Format checks for fields with a defined data format. Free-text project
+        // requirements remain flexible; they are validated for presence and length.
+        const emailField = document.getElementById('email');
+        const fullNameField = document.getElementById('fullName');
+        const intendedUsersField = document.getElementById('intendedUsers');
+        const emailFormat = /^[A-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}$/i;
+        const nameFormat = /^[\p{L}][\p{L}\p{M} .'-]{0,99}$/u;
+
+        function applyFieldFormatValidation() {
+            const email = emailField.value.trim();
+            emailField.setCustomValidity(
+                !email || emailFormat.test(email)
+                    ? ''
+                    : 'Enter a valid email address, such as name@example.com.'
+            );
+
+            const fullName = fullNameField.value.trim();
+            fullNameField.setCustomValidity(
+                !fullName || nameFormat.test(fullName)
+                    ? ''
+                    : 'Enter a valid name using letters, spaces, apostrophes, periods, or hyphens.'
+            );
+
+            const intendedUsers = intendedUsersField.value.trim();
+            intendedUsersField.setCustomValidity(
+                !intendedUsers || /\d/.test(intendedUsers)
+                    ? ''
+                    : 'Include an estimated user count, for example: 50 support agents.'
+            );
+        }
+
+        [emailField, fullNameField, intendedUsersField].forEach(field => {
+            field.addEventListener('input', applyFieldFormatValidation);
+            field.addEventListener('change', applyFieldFormatValidation);
+        });
+
+        intakeForm.querySelectorAll('[required]').forEach(field => {
+            const clearInvalidStyle = () => {
+                if (field.checkValidity() && field.value.trim()) {
+                    field.classList.remove('border-red-500');
+                }
+            };
+            field.addEventListener('input', clearInvalidStyle);
+            field.addEventListener('change', clearInvalidStyle);
+        });
+
+        function validateAllRequiredFields() {
+            applyFieldFormatValidation();
+            const invalidField = [...intakeForm.querySelectorAll('[required]')].find(field => {
+                const hasValue = typeof field.value === 'string'
+                    ? field.value.trim() !== ''
+                    : Boolean(field.value);
+                return !hasValue || !field.checkValidity();
+            });
+
+            if (!invalidField) return true;
+
+            const owningStep = invalidField.closest('.form-step');
+            const invalidStep = Number(owningStep?.dataset.step);
+            if (invalidStep && invalidStep !== currentStep) {
+                currentStep = invalidStep;
+                showStep(currentStep);
+            }
+
+            invalidField.classList.add('border-red-500');
+            invalidField.focus();
+            invalidField.reportValidity();
+            return false;
+        }
+
+        // Form Final Submission Handler. The form uses novalidate so this handler
+        // can route the user to an invalid field even when it is in a hidden step.
+        intakeForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (currentStep !== totalSteps || intakeSubmissionInProgress) return;
+
+            const btn = document.getElementById('submitBtn');
+            if (!validateAllRequiredFields()) return;
+
+            // Step 6 has no Next Section button, so perform its AI review here.
+            // If clarification is needed, keep final submission locked until the
+            // clarification flow has been completed.
+            if (getEvaluationQuestionIds(currentStep).length) {
+                if (clarificationFlowActiveStep === currentStep) return;
+
+                btn.disabled = true;
+                btn.textContent = 'Reviewing final details...';
+                try {
+                    const review = await reviewEvaluationSection(currentStep);
+                    if (review.requiresClarification) {
+                        lockSectionNextButton(true);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Final section AI Evaluation Error:', error);
+                    alert(error.message || 'Unable to evaluate your final section answers. Please try again.');
+                    lockSectionNextButton(false);
                     return;
                 }
             }
 
-            currentStep += direction;
-            if (currentStep < 1) currentStep = 1;
-            if (currentStep > totalSteps) currentStep = totalSteps;
-            showStep(currentStep);
-        }
-
-        // Form Final Submission Handler
-        document.getElementById('intakeForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
             btn.disabled = true;
-            btn.textContent = 'Transmitting to Zendesk...';
+            btn.textContent = 'Submitting Intake Details...';
 
             const payload = {
                 fullName: document.getElementById('fullName').value,
@@ -313,9 +1107,40 @@
                 timeline: document.getElementById('timeline').value,
                 budgetRange: document.getElementById('budgetRange').value,
                 deliverables: document.getElementById('deliverables').value,
-                exclusions: document.getElementById('exclusions').value
+                exclusions: document.getElementById('exclusions').value,
+                aiEvaluation: Object.fromEntries(
+                    EVALUATION_QUESTION_IDS.map(questionId => {
+                        const reviewState = aiReviewStates[questionId];
+
+                        const panel = document.getElementById(
+                            `${questionId}FollowUpContainer`
+                        );
+
+                        return [
+                            questionId,
+                            {
+                                originalAnswer: document.getElementById(questionId).value.trim(),
+
+                                clarificationQuestion:
+                                    panel?.querySelector('.ai-follow-up-question')?.textContent || null,
+
+                                clarificationAnswer: clarificationSubmitted.has(questionId)
+                                    ? (panel?.querySelector('.ai-follow-up-answer')?.value.trim() ||
+                                        clarificationAnswerValues.get(questionId) || '')
+                                    : '',
+
+                                evaluation: reviewState.lastEvaluation,
+
+                                needsManualReview: reviewState.needsManualReview,
+                                reviewOutdated: reviewState.answerChanged
+                            }
+                        ];
+                    })
+                )
+
             };
 
+            intakeSubmissionInProgress = true;
             try {
                 const response = await fetch('/api/submit-intake', {
                     method: 'POST',
@@ -323,19 +1148,26 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (response.ok) {
-                    document.getElementById('intakeForm').classList.add('hidden');
-                    document.getElementById('successMessage').classList.remove('hidden');
-                } else {
-                    alert('Submission failed. Please check your inputs.');
-                    btn.disabled = false;
-                    btn.textContent = 'Submit Intake Details ✓';
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || result.success !== true) {
+                    throw new Error(result.error || `Submission failed (HTTP ${response.status}). Please try again.`);
                 }
+
+                const emailMessage = result.confirmationEmailSent
+                    ? ' A confirmation email has also been sent.'
+                    : ' The confirmation email could not be sent.';
+                document.getElementById('successSubmissionDetails').textContent =
+                    `Your responses have been recorded.${emailMessage}`;
+
+                intakeForm.classList.add('hidden');
+                document.getElementById('successMessage').classList.remove('hidden');
             } catch (err) {
-                console.error(err);
-                alert('Connection error. Please ensure your backend server is running.');
+                console.error('Intake submission error:', err);
+                alert(err.message || 'Unable to submit the intake. Please try again.');
+                intakeSubmissionInProgress = false;
                 btn.disabled = false;
                 btn.textContent = 'Submit Intake Details ✓';
+                lockSectionNextButton(false);
             }
         });
     </script>

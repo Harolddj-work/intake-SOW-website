@@ -1,0 +1,27 @@
+
+# Dependencies
+node_modules/
+
+# Environment variables and secrets
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
