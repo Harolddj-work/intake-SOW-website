@@ -1,4 +1,3 @@
-const nodemailer = require('nodemailer');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -71,22 +70,6 @@ async function getZendeskAccessToken() {
 
     return zendeskAccessToken;
 }
-
-// ==========================================
-// EMAIL CONFIGURATION
-// ==========================================
-
-const emailTransporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === 'true',
-
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    }
-});
-
 
 // ==========================================
 // AI ANSWER EVALUATION
@@ -619,27 +602,6 @@ END OF INTAKE SUBMISSION
         );
 
         // ==========================================
-        // SEND CONFIRMATION EMAIL
-        // ==========================================
-
-        let emailSent = false;
-
-        try {
-
-            await sendConfirmationEmail(data, ticket.id);
-
-            emailSent = true;
-
-        } catch (emailError) {
-
-            console.error(
-                'Confirmation Email Error:',
-                emailError
-            );
-
-        }
-
-        // ==========================================
         // RETURN SUCCESSFUL RESPONSE
         // ==========================================
 
@@ -651,8 +613,6 @@ END OF INTAKE SUBMISSION
             ticketId: ticket.id,
             ticketSubject: ticket.subject,
             ticketStatus: ticket.status,
-
-            confirmationEmailSent: emailSent,
 
             zendeskUrl:
                 `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${ticket.id}`
@@ -670,59 +630,6 @@ END OF INTAKE SUBMISSION
     }
 
 });
-
-// ==========================================
-// CONFIRMATION EMAIL FUNCTION
-// ==========================================
-
-async function sendConfirmationEmail(data, ticketId) {
-
-    const mailOptions = {
-
-        from: process.env.EMAIL_FROM,
-
-        to: data.email.trim(),
-
-        subject: `SOW Intake Received - ${data.projectName}`,
-
-        text: `
-Hello ${data.fullName},
-
-Thank you for submitting your Statement of Work (SOW) intake form.
-
-We have successfully received your submission and created a support ticket in our system.
-
-SUBMISSION DETAILS
-
-Company: ${data.companyName}
-Project: ${data.projectName}
-Reference Ticket ID: #${ticketId}
-
-WHAT HAPPENS NEXT?
-
-The TPS Team is currently reviewing the information and requirements provided in your submission and is working on the preparation of a Proof of Concept (POC) tailored to your business needs and project objectives.
-
-Our team will keep you informed of the progress and coordinate with you regarding the next steps.
-
-Thank you for your patience and for considering our team for your project.
-
-Best regards,
-TPS Team
-
-This is an automated confirmation email. Please do not reply directly to this message.
-        `.trim()
-
-    };
-
-    const info = await emailTransporter.sendMail(mailOptions);
-
-    console.log(
-        `Confirmation email successfully sent to ${data.email}: ${info.messageId}`
-    );
-
-    return info;
-}
-
 
 // ==========================================
 // START SERVER
