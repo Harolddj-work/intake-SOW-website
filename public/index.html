@@ -95,8 +95,40 @@
                             <input type="text" id="intendedUsers" required maxlength="150" placeholder="e.g., 50 support agents, 10k customers" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Required Communication Channels *</label>
-                            <input type="text" id="channels" required maxlength="200" placeholder="Voice, SMS, Email, WhatsApp, Web Chat..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">
+                                Required Communication Channels *
+                            </label>
+
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" name="channels" value="Voice" class="channel-checkbox">
+                                    Voice
+                                </label>
+
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" name="channels" value="SMS" class="channel-checkbox">
+                                    SMS
+                                </label>
+
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" name="channels" value="Email" class="channel-checkbox">
+                                    Email
+                                </label>
+
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" name="channels" value="WhatsApp" class="channel-checkbox">
+                                    WhatsApp
+                                </label>
+
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" name="channels" value="Web Chat" class="channel-checkbox">
+                                    Web Chat
+                                </label>
+                            </div>
+
+                            <p id="channelsError" class="hidden text-red-500 text-xs mt-2">
+                                Please select at least one communication channel.
+                            </p>
                         </div>
                     </div>
                     <div>
@@ -136,22 +168,77 @@
 
                 <!-- STEP 5: Volumes, SLAs & Performance -->
                 <div class="form-step space-y-4 hidden" data-step="5">
-                    <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">5. Volumes, SLAs & Performance</h2>
+
+                    <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">
+                        5. Volumes, SLAs & Performance
+                    </h2>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        <!-- Expected Volumes -->
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Expected Transaction, Call/Chat Volumes & Peak Demand *</label>
-                            <input type="text" id="volumes" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">
+                                Expected Transaction, Call/Chat Volumes & Peak Demand *
+                            </label>
+
+                            <textarea
+                                id="volumes"
+                                required
+                                maxlength="500"
+                                rows="4"
+                                placeholder="Example: Around 500 customer interactions per day, with higher volumes during payday or promotional campaigns."
+                                class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none resize-y"
+                            ></textarea>
+
+                            <p class="text-xs text-slate-500 mt-1">
+                                Estimate the number of calls, chats, or customer transactions per day or month. Include busy periods if applicable.
+                            </p>
                         </div>
+
+                        <!-- Operating Hours -->
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Operating Hours, Supported Languages & Geographic Coverage *</label>
-                            <input type="text" id="operatingHours" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">
+                                Operating Hours, Supported Languages & Geographic Coverage *
+                            </label>
+
+                            <textarea
+                                id="operatingHours"
+                                required
+                                maxlength="500"
+                                rows="4"
+                                placeholder="Example: Monday–Friday, 8 AM–6 PM. English and Filipino. Supporting customers nationwide in the Philippines."
+                                class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none resize-y"
+                            ></textarea>
+
+                            <p class="text-xs text-slate-500 mt-1">
+                                Specify service hours, languages supported, and customer locations or countries covered.
+                            </p>
                         </div>
+
                     </div>
+
+                    <!-- Reporting & Analytics -->
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Reporting, Dashboard, Analytics, Reliability, and Availability Requirements *</label>
-                        <input type="text" id="analytics" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Reporting, Dashboard, Analytics, Reliability, and Availability Requirements *
+                        </label>
+
+                        <textarea
+                            id="analytics"
+                            required
+                            maxlength="500"
+                            rows="4"
+                            placeholder="Example: Daily and monthly reports, dashboard showing total calls and missed calls, Excel export, and system availability of 99.9%."
+                            class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none resize-y"
+                        ></textarea>
+
+                        <p class="text-xs text-slate-500 mt-1">
+                            Describe the reports, dashboard information, performance monitoring, and system availability you expect.
+                        </p>
                     </div>
+
                 </div>
+
 
                 <!-- STEP 6: Timeline, Budget & Deliverables -->
                 <div class="form-step space-y-4 hidden" data-step="6">
@@ -929,6 +1016,21 @@
                         }
                         return;
                     }
+                    // Require at least one communication channel on Step 3
+                    if (currentStep === 3) {
+                        const selectedChannels = document.querySelectorAll(
+                            '.channel-checkbox:checked'
+                        );
+
+                        const channelsError = document.getElementById('channelsError');
+
+                        if (selectedChannels.length === 0) {
+                            channelsError.classList.remove('hidden');
+                            return;
+                        }
+
+                        channelsError.classList.add('hidden');
+                    }
                 }
 
                 if (direction === 1 && getEvaluationQuestionIds(currentStep).length) {
@@ -1023,28 +1125,50 @@
             field.addEventListener('change', clearInvalidStyle);
         });
 
-        function validateAllRequiredFields() {
+       function validateAllRequiredFields() {
             applyFieldFormatValidation();
+
             const invalidField = [...intakeForm.querySelectorAll('[required]')].find(field => {
                 const hasValue = typeof field.value === 'string'
                     ? field.value.trim() !== ''
                     : Boolean(field.value);
+
                 return !hasValue || !field.checkValidity();
             });
 
-            if (!invalidField) return true;
+            // Check other required fields first
+            if (invalidField) {
+                const owningStep = invalidField.closest('.form-step');
+                const invalidStep = Number(owningStep?.dataset.step);
 
-            const owningStep = invalidField.closest('.form-step');
-            const invalidStep = Number(owningStep?.dataset.step);
-            if (invalidStep && invalidStep !== currentStep) {
-                currentStep = invalidStep;
-                showStep(currentStep);
+                if (invalidStep && invalidStep !== currentStep) {
+                    currentStep = invalidStep;
+                    showStep(currentStep);
+                }
+
+                invalidField.classList.add('border-red-500');
+                invalidField.focus();
+                invalidField.reportValidity();
+                return false;
             }
 
-            invalidField.classList.add('border-red-500');
-            invalidField.focus();
-            invalidField.reportValidity();
-            return false;
+            // Check communication channel checkboxes
+            const selectedChannels = document.querySelectorAll(
+                '.channel-checkbox:checked'
+            );
+
+            const channelsError = document.getElementById('channelsError');
+
+            if (selectedChannels.length === 0) {
+                channelsError.classList.remove('hidden');
+                currentStep = 3;
+                showStep(currentStep);
+                return false;
+            }
+
+            channelsError.classList.add('hidden');
+
+            return true;
         }
 
         // Form Final Submission Handler. The form uses novalidate so this handler
@@ -1093,7 +1217,9 @@
                 successMetrics: document.getElementById('successMetrics').value,
                 functionalities: document.getElementById('functionalities').value,
                 intendedUsers: document.getElementById('intendedUsers').value,
-                channels: document.getElementById('channels').value,
+                channels: Array.from(
+                    document.querySelectorAll('.channel-checkbox:checked')
+                ).map(checkbox => checkbox.value).join(', '),
                 automationWorkflow: document.getElementById('automationWorkflow').value,
                 aiCapabilities: document.getElementById('aiCapabilities').value,
                 existingPlatforms: document.getElementById('existingPlatforms').value,
