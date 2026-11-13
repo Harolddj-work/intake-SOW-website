@@ -115,6 +115,26 @@
         <div class="bg-white shadow-sm rounded-xl border border-slate-200 p-8">
             
             <form id="intakeForm" class="space-y-6" novalidate>
+                <!-- Automatic Draft Saving Notice -->
+                <div
+                    class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+                
+                    <p id="draftStatusText" class="text-xs text-blue-800" role="status" aria-live="polite">
+                
+                        Your progress is saved automatically in this browser.
+                        Drafts expire after 7 days of inactivity.
+                        Avoid using this feature on shared devices.
+                
+                    </p>
+                
+                    <button type="button" id="clearDraftBtn"
+                        class="hidden shrink-0 text-xs font-semibold text-blue-700 hover:underline">
+                
+                        Clear saved draft
+                
+                    </button>
+                
+                </div>
                 
                 <!-- STEP 1: Contact & Company Info -->
                 <div class="form-step space-y-4" data-step="1">
@@ -875,6 +895,7 @@
 
                     console.log(`Batch evaluation for ${questionId}:`, evaluation);
                 });
+                scheduleDraftSave();
             }
 
             function getPendingClarificationIds(evaluations, questionIds) {
@@ -967,6 +988,7 @@
                 ui.container.classList.remove('hidden');
                 currentClarificationQuestionId = questionId;
                 clarificationFlowActiveStep = step;
+                scheduleDraftSave();
 
                 const field = document.getElementById(questionId);
                 field.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1163,6 +1185,7 @@
                 if (currentStep < 1) currentStep = 1;
                 if (currentStep > totalSteps) currentStep = totalSteps;
                 showStep(currentStep);
+                scheduleDraftSave();
             }
 
             // Editing a reviewed answer invalidates its own section and every
@@ -1379,6 +1402,505 @@
 
             return true;
         }
+
+        // ==========================================
+            // AUTOMATIC DRAFT SAVING
+            // ==========================================
+
+            const DRAFT_STORAGE_KEY = 'sow-intake-draft-v1';
+
+            const DRAFT_EXPIRY_MS =
+                7 * 24 * 60 * 60 * 1000;
+
+            let draftSubmissionId = createDraftSubmissionId();
+            let draftSaveTimer = null;
+
+            let isRestoringDraft = false;
+            let isClearingDraft = false;
+            let submissionCompleted = false;
+
+            const draftStatusText =
+                document.getElementById('draftStatusText');
+
+            const clearDraftBtn =
+                document.getElementById('clearDraftBtn');
+
+
+            function createDraftSubmissionId() {
+
+                if (
+                    window.crypto &&
+                    typeof window.crypto.randomUUID === 'function'
+                ) {
+                    return window.crypto.randomUUID();
+                }
+
+                return `sow-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .slice(2, 14)}`;
+            }
+
+
+            function setDraftStatus(message, hasSavedDraft = false) {
+
+                draftStatusText.textContent = message;
+
+                clearDraftBtn.classList.toggle(
+                    'hidden',
+                    !hasSavedDraft
+                );
+
+            }
+
+
+            // Collect regular form fields.
+            function getDraftFormValues() {
+
+                const values = {};
+
+                intakeForm.querySelectorAll(
+                    'input[id], textarea[id], select[id]'
+                ).forEach(field => {
+
+                    if (
+                        field.type === 'file' ||
+                        field.type === 'password'
+                    ) {
+                        return;
+                    }
+
+                    values[field.id] = field.value;
+
+                });
+
+                return values;
+
+            }
+
+
+            // Prepare everything that needs to be saved.
+            function buildDraftSnapshot() {
+
+                return {
+
+                    version: 1,
+
+                    savedAt: Date.now(),
+
+                    submissionId: draftSubmissionId,
+
+                    currentStep,
+
+                    fields: getDraftFormValues(),
+
+                    aiReviewStates,
+
+                    clarificationAnswers:
+                        Object.fromEntries(clarificationAnswerValues),
+
+                    clarificationSubmitted:
+                        [...clarificationSubmitted],
+
+                    clarificationFlowActiveStep,
+
+                    currentClarificationQuestionId
+
+                };
+
+            }
+
+
+            // Save immediately.
+            function saveDraftNow() {
+
+                if (
+                    isRestoringDraft ||
+                    isClearingDraft ||
+                    submissionCompleted
+                ) {
+                    return;
+                }
+
+                const fields = getDraftFormValues();
+
+                const hasAnyAnswer =
+                    Object.values(fields).some(value =>
+                        typeof value === 'string' &&
+                        value.trim() !== ''
+                    ) ||
+                    [...clarificationAnswerValues.values()].some(value =>
+                        typeof value === 'string' &&
+                        value.trim() !== ''
+                    );
+
+                if (!hasAnyAnswer) {
+
+                    try {
+                        localStorage.removeItem(DRAFT_STORAGE_KEY);
+                    } catch (error) {
+                        console.error('Unable to clear empty draft:', error);
+                    }
+
+                    draftSubmissionId = createDraftSubmissionId();
+
+                    setDraftStatus(
+                        'Your progress is saved automatically in this browser.',
+                        false
+                    );
+
+                    return;
+                }
+
+                try {
+
+                    localStorage.setItem(
+                        DRAFT_STORAGE_KEY,
+                        JSON.stringify(buildDraftSnapshot())
+                    );
+
+                    const savedTime = new Date().toLocaleTimeString([], {
+                        hour: 'numeric',
+                        minute: '2-digit'
+                    });
+
+                    setDraftStatus(
+                        `Draft saved automatically at ${savedTime}.`,
+                        true
+                    );
+
+                } catch (error) {
+
+                    console.error('Draft saving failed:', error);
+
+                    setDraftStatus(
+                        'Unable to save this draft. Check your browser storage settings.',
+                        false
+                    );
+
+                }
+
+            }
+
+
+            // Debounce saving to avoid writing to storage on every keystroke.
+            function scheduleDraftSave() {
+
+                if (
+                    isRestoringDraft ||
+                    isClearingDraft ||
+                    submissionCompleted
+                ) {
+                    return;
+                }
+
+                window.clearTimeout(draftSaveTimer);
+
+                setDraftStatus('Saving your draft...', true);
+
+                draftSaveTimer = window.setTimeout(
+                    saveDraftNow,
+                    350
+                );
+
+            }
+
+
+            // Restore previously saved draft.
+            function restoreDraft() {
+
+                let savedDraft;
+
+                try {
+
+                    const rawDraft =
+                        localStorage.getItem(DRAFT_STORAGE_KEY);
+
+                    if (!rawDraft) return;
+
+                    savedDraft = JSON.parse(rawDraft);
+
+                } catch (error) {
+
+                    console.error('Unable to read saved draft:', error);
+
+                    try {
+                        localStorage.removeItem(DRAFT_STORAGE_KEY);
+                    } catch (removeError) {
+                        console.error(removeError);
+                    }
+
+                    setDraftStatus(
+                        'The saved draft could not be read. You can still complete the form.',
+                        false
+                    );
+
+                    return;
+
+                }
+
+
+                // Check expiration and format.
+                if (
+                    !savedDraft ||
+                    savedDraft.version !== 1 ||
+                    !Number.isFinite(savedDraft.savedAt) ||
+                    Date.now() - savedDraft.savedAt > DRAFT_EXPIRY_MS
+                ) {
+
+                    try {
+                        localStorage.removeItem(DRAFT_STORAGE_KEY);
+                    } catch (error) {
+                        console.error(error);
+                    }
+
+                    setDraftStatus(
+                        'Your previous draft expired. You can start a new submission.',
+                        false
+                    );
+
+                    return;
+
+                }
+
+
+                isRestoringDraft = true;
+
+                try {
+
+                    // Restore ordinary form answers.
+                    Object.entries(savedDraft.fields || {}).forEach(
+                        ([fieldId, value]) => {
+
+                            const field =
+                                document.getElementById(fieldId);
+
+                            if (field && typeof value === 'string') {
+                                field.value = value;
+                            }
+
+                        }
+                    );
+
+
+                    // Restore the submission ID.
+                    if (
+                        typeof savedDraft.submissionId === 'string' &&
+                        savedDraft.submissionId.length >= 16
+                    ) {
+                        draftSubmissionId = savedDraft.submissionId;
+                    }
+
+
+                    // Restore AI review states.
+                    Object.keys(aiReviewStates).forEach(questionId => {
+
+                        const savedState =
+                            savedDraft.aiReviewStates?.[questionId];
+
+                        if (savedState && typeof savedState === 'object') {
+
+                            Object.assign(
+                                aiReviewStates[questionId],
+                                savedState
+                            );
+
+                        }
+
+                    });
+
+
+                    // Restore clarification answers.
+                    clarificationAnswerValues.clear();
+
+                    Object.entries(savedDraft.clarificationAnswers || {})
+                        .forEach(([questionId, answer]) => {
+
+                            if (
+                                EVALUATION_QUESTION_IDS.includes(questionId) &&
+                                typeof answer === 'string'
+                            ) {
+                                clarificationAnswerValues.set(
+                                    questionId,
+                                    answer
+                                );
+                            }
+
+                        });
+
+
+                    // Restore submitted clarification states.
+                    clarificationSubmitted.clear();
+
+                    (
+                        Array.isArray(savedDraft.clarificationSubmitted)
+                            ? savedDraft.clarificationSubmitted
+                            : []
+                    )
+                        .filter(questionId =>
+                            EVALUATION_QUESTION_IDS.includes(questionId)
+                        )
+                        .forEach(questionId =>
+                            clarificationSubmitted.add(questionId)
+                        );
+
+
+                    // Restore current section.
+                    currentStep =
+                        Number.isInteger(savedDraft.currentStep) &&
+                            savedDraft.currentStep >= 1 &&
+                            savedDraft.currentStep <= totalSteps
+                            ? savedDraft.currentStep
+                            : 1;
+
+
+                    clarificationFlowActiveStep =
+                        Number.isInteger(savedDraft.clarificationFlowActiveStep)
+                            ? savedDraft.clarificationFlowActiveStep
+                            : null;
+
+                    currentClarificationQuestionId =
+                        EVALUATION_QUESTION_IDS.includes(
+                            savedDraft.currentClarificationQuestionId
+                        )
+                            ? savedDraft.currentClarificationQuestionId
+                            : null;
+
+
+                    // Rebuild the AI clarification panels.
+                    EVALUATION_QUESTION_IDS.forEach(questionId => {
+
+                        const reviewState = aiReviewStates[questionId];
+
+                        const answer =
+                            clarificationAnswerValues.get(questionId) || '';
+
+                        if (!reviewState.lastEvaluation && !answer) return;
+
+                        const ui = getOrCreateFollowUpUI(questionId);
+
+                        ui.answer.value = answer;
+
+                        if (clarificationSubmitted.has(questionId)) {
+
+                            renderSubmittedClarification(questionId);
+
+                        } else if (reviewState.lastEvaluation?.sufficient) {
+
+                            renderCompletedReview(
+                                questionId,
+                                reviewState.lastEvaluation
+                            );
+
+                        }
+
+                    });
+
+
+                    if (currentClarificationQuestionId) {
+
+                        currentStep =
+                            EVALUATION_QUESTION_STEP[
+                            currentClarificationQuestionId
+                            ] || currentStep;
+
+                    }
+
+                    showStep(currentStep);
+
+
+                    // Resume an unfinished clarification.
+                    if (
+                        currentClarificationQuestionId &&
+                        aiReviewStates[currentClarificationQuestionId]?.lastEvaluation
+                    ) {
+
+                        activateClarificationQuestion(
+                            currentClarificationQuestionId,
+                            aiReviewStates[currentClarificationQuestionId].lastEvaluation
+                        );
+
+                    } else {
+
+                        clarificationFlowActiveStep = null;
+                        currentClarificationQuestionId = null;
+
+                        renderCrossCoveredAnswerReviews(
+                            EVALUATION_QUESTION_IDS
+                        );
+
+                    }
+
+
+                    const lastSaved =
+                        new Date(savedDraft.savedAt).toLocaleString();
+
+                    setDraftStatus(
+                        `Your previous draft was restored. Last saved: ${lastSaved}.`,
+                        true
+                    );
+
+                } catch (error) {
+
+                    console.error('Draft restoration failed:', error);
+
+                    setDraftStatus(
+                        'Your draft could not be fully restored. Please review your answers.',
+                        true
+                    );
+
+                } finally {
+
+                    isRestoringDraft = false;
+
+                }
+
+            }
+
+
+            // Clear saved draft and restart.
+            clearDraftBtn.addEventListener('click', () => {
+
+                const confirmed = window.confirm(
+                    'Clear your saved SOW draft and remove all answers? This cannot be undone.'
+                );
+
+                if (!confirmed) return;
+
+                isClearingDraft = true;
+
+                try {
+
+                    localStorage.removeItem(DRAFT_STORAGE_KEY);
+
+                } catch (error) {
+
+                    isClearingDraft = false;
+
+                    console.error(error);
+
+                    alert('Unable to clear the saved draft.');
+
+                    return;
+
+                }
+
+                window.location.reload();
+
+            });
+
+
+            // Automatically save answers and section changes.
+            intakeForm.addEventListener('input', scheduleDraftSave);
+
+            intakeForm.addEventListener('change', scheduleDraftSave);
+
+
+            // Save immediately before the user leaves or refreshes.
+            window.addEventListener('beforeunload', saveDraftNow);
+
+
+            // Restore the previous session.
+            restoreDraft();
 
         // Form Final Submission Handler. The form uses novalidate so this handler
         // can route the user to an invalid field even when it is in a hidden step.
