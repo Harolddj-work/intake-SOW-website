@@ -26,7 +26,26 @@
         body.dark-theme .bg-slate-200 { background-color: #334155 !important; color: #e2e8f0 !important; }
         body.dark-theme .bg-slate-200:hover { background-color: #475569 !important; }
         body.dark-theme footer { color: #64748b !important; }
+        body.dark-theme #successMessage h3 {
+            color: #f1f5f9 !important;
+        }
 
+        body.dark-theme #successSubmissionDetails {
+            color: #cbd5e1 !important;
+        }
+
+        body.dark-theme #successMessage button {
+            color: #60a5fa !important;
+        }
+
+        body.dark-theme #successMessage button:hover {
+            color: #93c5fd !important;
+        }
+
+        body.dark-theme #successMessage .bg-emerald-100 {
+            background-color: #064e3b !important;
+            color: #6ee7b7 !important;
+        }
         /* Dark mode styling for dynamically generated AI clarification panels */
         body.dark-theme .ai-follow-up-container,
         body.dark-theme [id$="FollowUpContainer"] {
@@ -1075,6 +1094,8 @@
             async function changeStep(direction) {
                 // Required-field validation remains local and does not call the AI.
                 if (direction === 1) {
+                    applyFieldFormatValidation();
+                    applyStartDateValidation();
                     const currentSection = document.querySelector(
                         `.form-step[data-step="${currentStep}"]`
                     );
@@ -1169,6 +1190,35 @@
         const intendedUsersField = document.getElementById('intendedUsers');
         const emailFormat = /^[A-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}$/i;
         const nameFormat = /^[\p{L}][\p{L}\p{M} .'-]{0,99}$/u;
+
+        const startDateField = document.getElementById('startDate');
+
+        // Project start must be at least 7 calendar days from today's local date.
+        function getMinimumStartDate() {
+            const minimum = new Date();
+            minimum.setHours(0, 0, 0, 0);
+            minimum.setDate(minimum.getDate() + 7);
+            const year = minimum.getFullYear();
+            const month = String(minimum.getMonth() + 1).padStart(2, '0');
+            const day = String(minimum.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function applyStartDateValidation() {
+            const minimumDate = getMinimumStartDate();
+            startDateField.min = minimumDate;
+            const selectedDate = startDateField.value;
+
+            startDateField.setCustomValidity(
+                !selectedDate || selectedDate >= minimumDate
+                    ? ''
+                    : `Choose a project start date on or after ${minimumDate} (at least 7 days from today).`
+            );
+        }
+
+        applyStartDateValidation();
+        startDateField.addEventListener('input', applyStartDateValidation);
+        startDateField.addEventListener('change', applyStartDateValidation);
 
         function applyFieldFormatValidation() {
             const email = emailField.value.trim();

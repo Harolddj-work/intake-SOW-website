@@ -347,7 +347,50 @@ app.post('/api/submit-intake', async (req, res) => {
                 error: 'Please provide a valid calendar date for the target start date.'
             });
         }
+        // ==========================================
+        // MINIMUM 7-DAY START DATE VALIDATION
+        // ==========================================
 
+        // Get today's date in Philippine time (Asia/Manila)
+        const manilaToday = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Manila',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(new Date());
+
+        const [todayYear, todayMonth, todayDay] =
+            manilaToday.split('-').map(Number);
+
+        const todayUtc = Date.UTC(
+            todayYear,
+            todayMonth - 1,
+            todayDay
+        );
+
+        // Minimum start date is 7 days from today
+        const minimumStartUtc =
+            todayUtc + (7 * 24 * 60 * 60 * 1000);
+
+        // Convert submitted start date to UTC
+        const submittedStartUtc = Date.UTC(
+            Number(dateMatch[1]),
+            Number(dateMatch[2]) - 1,
+            Number(dateMatch[3])
+        );
+
+        // Reject dates earlier than the minimum
+        if (submittedStartUtc < minimumStartUtc) {
+
+            const minimumDate = new Date(minimumStartUtc)
+                .toISOString()
+                .slice(0, 10);
+
+            return res.status(400).json({
+                success: false,
+                error: `Target Start Date must be at least 7 days from today. Earliest allowed date: ${minimumDate}.`
+            });
+        }
         // ==========================================
         // BUDGET VALIDATION
         // ==========================================
