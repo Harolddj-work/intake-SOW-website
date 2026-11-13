@@ -515,7 +515,7 @@
                         ui.heading.textContent = 'Clarification Submitted';
                         setFollowUpTheme(ui, 'submitted');
                     }
-                    ui.status.textContent = 'Your answers have changed since this review. The AI review will be refreshed when you continue.';
+                    ui.status.textContent = 'Your answers have changed since this review. The review will be refreshed when you continue.';
                 });
 
             // Editing an earlier answer can change whether a later question still
@@ -1161,7 +1161,11 @@
                 }
 
                 if (direction === 1 && getEvaluationQuestionIds(currentStep).length) {
-                    if (clarificationFlowActiveStep === currentStep) return;
+                    if (clarificationFlowActiveStep === currentStep) {
+                        intakeSubmissionInProgress = false;
+                        btn.disabled = true;
+                        return;
+                    }
 
                     const nextBtn = document.getElementById('nextBtn');
                     nextBtn.disabled = true;
@@ -1943,7 +1947,21 @@
             if (currentStep !== totalSteps || intakeSubmissionInProgress) return;
 
             const btn = document.getElementById('submitBtn');
-            if (!validateAllRequiredFields()) return;
+
+            intakeSubmissionInProgress = true;
+            btn.disabled = true;
+
+            if (!validateAllRequiredFields()) {
+
+                intakeSubmissionInProgress = false;
+
+                lockSectionNextButton(
+                    clarificationFlowActiveStep === currentStep
+                );
+
+                return;
+
+            }
 
             // Step 6 has no Next Section button, so perform its AI review here.
             // If clarification is needed, keep final submission locked until the
@@ -1956,6 +1974,7 @@
                 try {
                     const review = await reviewEvaluationSection(currentStep);
                     if (review.requiresClarification) {
+                        intakeSubmissionInProgress = false;
                         lockSectionNextButton(true);
                         return;
                     }
@@ -2033,9 +2052,13 @@
 
             intakeSubmissionInProgress = true;
             try {
+                payload.submissionId = draftSubmissionId;
                 const response = await fetch('/api/submit-intake', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': draftSubmissionId
+                    },
                     body: JSON.stringify(payload)
                 });
 
@@ -2047,6 +2070,17 @@
                 const emailMessage = result.confirmationEmailSent
                     ? ' A confirmation email has also been sent.'
                     : ' The confirmation email could not be sent.';
+
+                submissionCompleted = true;
+
+                try {
+                    localStorage.removeItem(DRAFT_STORAGE_KEY);
+                } catch (error) {
+                    console.error('Unable to clear submitted draft:', error);
+                }
+
+                window.clearTimeout(draftSaveTimer);
+
                 document.getElementById('successSubmissionDetails').textContent =
                     `Your responses have been recorded.${emailMessage}`;
 
