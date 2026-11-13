@@ -1481,33 +1481,37 @@
             // Prepare everything that needs to be saved.
             function buildDraftSnapshot() {
 
-                return {
+                    return {
 
-                    version: 1,
+                        version: 1,
 
-                    savedAt: Date.now(),
+                        savedAt: Date.now(),
 
-                    submissionId: draftSubmissionId,
+                        submissionId: draftSubmissionId,
 
-                    currentStep,
+                        currentStep,
 
-                    fields: getDraftFormValues(),
+                        fields: getDraftFormValues(),
 
-                    aiReviewStates,
+                        aiReviewStates,
 
-                    clarificationAnswers:
-                        Object.fromEntries(clarificationAnswerValues),
+                        clarificationAnswers:
+                            Object.fromEntries(clarificationAnswerValues),
 
-                    clarificationSubmitted:
-                        [...clarificationSubmitted],
+                        clarificationSubmitted:
+                            [...clarificationSubmitted],
 
-                    clarificationFlowActiveStep,
+                        clarificationFlowActiveStep,
 
-                    currentClarificationQuestionId
+                        currentClarificationQuestionId,
 
-                };
+                        // Persist completed AI evaluations.
+                        batchEvaluationCache:
+                            [...batchEvaluationCache.entries()]
 
-            }
+                    };
+
+                }
 
 
             // Save immediately.
@@ -1707,6 +1711,36 @@
                         }
 
                     });
+
+                    // ==========================================
+                    // RESTORE COMPLETED AI EVALUATIONS
+                    // ==========================================
+
+                    batchEvaluationCache.clear();
+
+                    if (Array.isArray(savedDraft.batchEvaluationCache)) {
+
+                        savedDraft.batchEvaluationCache.forEach(
+                            ([step, cached]) => {
+
+                                const stepNumber = Number(step);
+
+                                if (
+                                    !getEvaluationQuestionIds(stepNumber).length ||
+                                    !cached ||
+                                    typeof cached.snapshot !== 'string' ||
+                                    !cached.evaluations ||
+                                    typeof cached.evaluations !== 'object'
+                                ) {
+                                    return;
+                                }
+
+                                batchEvaluationCache.set(stepNumber, cached);
+
+                            }
+                        );
+
+                    }
 
 
                     // Restore clarification answers.
