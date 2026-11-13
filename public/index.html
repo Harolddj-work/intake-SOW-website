@@ -5,22 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Comprehensive SOW Intake Portal | Pre-Sales Operations</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Small theme layer: keeps the existing Tailwind form styling intact. */
+        body.dark-theme { background: #0f172a !important; color: #e2e8f0 !important; }
+        body.dark-theme main > div { background: #1e293b !important; border-color: #334155 !important; }
+        body.dark-theme .form-step h2 { color: #f1f5f9 !important; border-color: #475569 !important; }
+        body.dark-theme label { color: #cbd5e1 !important; }
+        body.dark-theme input:not([type="checkbox"]), body.dark-theme textarea, body.dark-theme select {
+            background-color: #0f172a !important; color: #e2e8f0 !important; border-color: #475569 !important;
+        }
+        body.dark-theme input::placeholder, body.dark-theme textarea::placeholder { color: #94a3b8 !important; }
+        body.dark-theme .text-slate-500, body.dark-theme .text-slate-600, body.dark-theme .text-slate-700 { color: #cbd5e1 !important; }
+        body.dark-theme .border-slate-200, body.dark-theme .border-slate-300 { border-color: #475569 !important; }
+        body.dark-theme .bg-slate-200 { background-color: #334155 !important; color: #e2e8f0 !important; }
+        body.dark-theme .bg-slate-200:hover { background-color: #475569 !important; }
+        body.dark-theme footer { color: #64748b !important; }
+        .theme-toggle { border: 1px solid #475569; border-radius: 9999px; padding: 8px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; transition: background .2s; }
+        .theme-toggle:hover { background: #334155; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
 
     <!-- Sticky Progress Bar Header -->
     <header class="sticky top-0 z-50 bg-slate-900 text-white shadow-md">
-        <div class="max-w-3xl mx-auto px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-                <h1 id="headerTitle" class="text-xl font-bold tracking-tight">Step 1 of 6: Contact & Company</h1>
-                <p class="text-slate-400 text-xs">Complete all sections to generate your preliminary Statement of Work.</p>
-            </div>
-            <!-- Live Progress Indicator -->
-            <div class="flex items-center gap-3 w-full sm:w-48">
-                <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
-                    <div id="progressBar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 16%"></div>
+        <div class="max-w-5xl mx-auto px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <!-- Inline logo mark: no image file required -->
+                <div class="h-11 w-11 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-900/30" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4M9 13h6M9 16.5h6"/>
+                    </svg>
                 </div>
-                <span id="progressText" class="text-xs font-semibold text-slate-300 whitespace-nowrap">Step 1 / 6</span>
+                <div>
+                    <p class="text-xs uppercase tracking-[.18em] text-blue-300 font-semibold">Pre-Sales Operations</p>
+                    <h1 id="headerTitle" class="text-xl font-bold tracking-tight">Step 1 of 6: Contact & Company</h1>
+                    <p class="text-slate-400 text-xs">Complete all sections to generate your preliminary Statement of Work.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 sm:justify-end">
+                <!-- Live Progress Indicator -->
+                <div class="flex items-center gap-3 w-full sm:w-48">
+                    <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                        <div id="progressBar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 16%"></div>
+                    </div>
+                    <span id="progressText" class="text-xs font-semibold text-slate-300 whitespace-nowrap">Step 1 / 6</span>
+                </div>
+                <button type="button" id="themeToggle" class="theme-toggle" aria-label="Switch to dark mode">🌙 Dark</button>
             </div>
         </div>
     </header>
@@ -140,18 +170,15 @@
                         <input type="text" id="aiCapabilities" required placeholder="Describe AI or routing needs..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                     </div>
                 </div>
-
                 <!-- STEP 4: Technical, Integration & Data Requirements -->
                 <div class="form-step space-y-4 hidden" data-step="4">
                     <h2 class="text-lg font-semibold text-slate-900 border-b pb-2">4. Technical, Integration & Data Requirements</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Existing Platforms / Systems to Retain, Enhance, or Replace *</label>
-                            <input type="text" id="existingPlatforms" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
+                            <label class="block text-sm font-medium text-slate-700 mb-1 min-h-[40px]">Existing Platforms / Systems to Retain, Enhance, or Replace *</label>                            <input type="text" id="existingPlatforms" required class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">External Systems to Integrate & Data Exchanged *</label>
-                            <input type="text" id="externalIntegrations" required placeholder="APIs, webhooks, CRM, ERP..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
+                            <label class="block text-sm font-medium text-slate-700 mb-1 min-h-[40px]">External Systems to Integrate & Data Exchanged *</label>                            <input type="text" id="externalIntegrations" required placeholder="APIs, webhooks, CRM, ERP..." class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" maxlength="500">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -165,7 +192,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- STEP 5: Volumes, SLAs & Performance -->
                 <div class="form-step space-y-4 hidden" data-step="5">
 
@@ -305,6 +331,27 @@
     <footer class="text-center py-6 text-slate-400 text-xs">
         &copy; 2026 Internal Pre-Sale Operations. All rights reserved.
     </footer>
+
+    <!-- Appearance toggle (independent from the form wizard logic) -->
+    <script>
+        (function () {
+            const toggle = document.getElementById('themeToggle');
+            const body = document.body;
+            function applyTheme(isDark) {
+                body.classList.toggle('dark-theme', isDark);
+                toggle.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+                toggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+            }
+            let savedTheme = 'light';
+            try { savedTheme = localStorage.getItem('sow-portal-theme') || 'light'; } catch (_) {}
+            applyTheme(savedTheme === 'dark');
+            toggle.addEventListener('click', function () {
+                const isDark = !body.classList.contains('dark-theme');
+                applyTheme(isDark);
+                try { localStorage.setItem('sow-portal-theme', isDark ? 'dark' : 'light'); } catch (_) {}
+            });
+        })();
+    </script>
 
     <!-- Multi-Step Wizard Script -->
     <script>
