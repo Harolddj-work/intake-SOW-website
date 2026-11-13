@@ -391,6 +391,79 @@ app.post('/api/submit-intake', async (req, res) => {
                 error: `Target Start Date must be at least 7 days from today. Earliest allowed date: ${minimumDate}.`
             });
         }
+         // ==========================================
+        // GO-LIVE DEADLINE VALIDATION
+        // ==========================================
+
+        // Go-Live Deadline must be a valid YYYY-MM-DD date.
+        const goLiveMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(data.timeline);
+
+        if (!goLiveMatch) {
+            return res.status(400).json({
+                success: false,
+                error: 'Please provide a valid Go-Live Deadline date.'
+            });
+        }
+
+        const goLiveDate = new Date(Date.UTC(
+            Number(goLiveMatch[1]),
+            Number(goLiveMatch[2]) - 1,
+            Number(goLiveMatch[3])
+        ));
+
+        // Reject impossible calendar dates.
+        if (
+            goLiveDate.getUTCFullYear() !== Number(goLiveMatch[1]) ||
+            goLiveDate.getUTCMonth() !== Number(goLiveMatch[2]) - 1 ||
+            goLiveDate.getUTCDate() !== Number(goLiveMatch[3])
+        ) {
+            return res.status(400).json({
+                success: false,
+                error: 'Please provide a valid calendar date for the Go-Live Deadline.'
+            });
+        }
+
+        // Calculate the minimum Go-Live date: 2 calendar months
+        // after the submitted Target Start Date.
+        const startYear = Number(dateMatch[1]);
+        const startMonth = Number(dateMatch[2]);
+        const startDay = Number(dateMatch[3]);
+
+        const targetMonthIndex = (startMonth - 1) + 2;
+        const targetYear = startYear + Math.floor(targetMonthIndex / 12);
+        const targetMonth = (targetMonthIndex % 12) + 1;
+
+        const lastDayOfTargetMonth = new Date(
+            Date.UTC(targetYear, targetMonth, 0)
+        ).getUTCDate();
+
+        const minimumGoLiveDay = Math.min(
+            startDay,
+            lastDayOfTargetMonth
+        );
+
+        const minimumGoLiveDate = Date.UTC(
+            targetYear,
+            targetMonth - 1,
+            minimumGoLiveDay
+        );
+
+        const submittedGoLiveDate = Date.UTC(
+            Number(goLiveMatch[1]),
+            Number(goLiveMatch[2]) - 1,
+            Number(goLiveMatch[3])
+        );
+
+        if (submittedGoLiveDate < minimumGoLiveDate) {
+            const minimumDate = new Date(minimumGoLiveDate)
+                .toISOString()
+                .slice(0, 10);
+
+            return res.status(400).json({
+                success: false,
+                error: `Go-Live Deadline must be at least 2 months after the Target Start Date. Earliest allowed date: ${minimumDate}.`
+            });
+        }
         // ==========================================
         // BUDGET VALIDATION
         // ==========================================

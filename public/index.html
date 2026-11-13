@@ -331,7 +331,8 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Go-Live Deadline *</label>
-                            <input type="text" id="timeline" required maxlength="120" placeholder="e.g., Q3 2026" class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <input type="date" id="timeline" required
+                            class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Estimated Budget *</label>
@@ -1219,7 +1220,67 @@
         applyStartDateValidation();
         startDateField.addEventListener('input', applyStartDateValidation);
         startDateField.addEventListener('change', applyStartDateValidation);
+        // ==========================================
+        // GO-LIVE DEADLINE VALIDATION
+        // ==========================================
 
+        const goLiveDateField = document.getElementById('timeline');
+
+        // Add 2 calendar months to the project start date.
+        // If the target month has fewer days, use its last day.
+        function addTwoCalendarMonths(dateString) {
+            if (!dateString) return '';
+
+            const [year, month, day] = dateString.split('-').map(Number);
+
+            const targetMonthIndex = (month - 1) + 2;
+            const targetYear = year + Math.floor(targetMonthIndex / 12);
+            const targetMonth = (targetMonthIndex % 12) + 1;
+
+            const lastDayOfTargetMonth = new Date(
+                targetYear,
+                targetMonth,
+                0
+            ).getDate();
+
+            const targetDay = Math.min(day, lastDayOfTargetMonth);
+
+            return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+        }
+
+        function applyGoLiveDateValidation() {
+            const startDate = startDateField.value;
+
+            if (!startDate) {
+                goLiveDateField.min = '';
+                goLiveDateField.setCustomValidity(
+                    'Please select the Target Start Date first.'
+                );
+                return;
+            }
+
+            const minimumGoLiveDate = addTwoCalendarMonths(startDate);
+
+            goLiveDateField.min = minimumGoLiveDate;
+
+            const selectedGoLiveDate = goLiveDateField.value;
+
+            goLiveDateField.setCustomValidity(
+                !selectedGoLiveDate ||
+                selectedGoLiveDate >= minimumGoLiveDate
+                    ? ''
+                    : `Go-Live Deadline must be at least 2 months after the Target Start Date (${minimumGoLiveDate}).`
+            );
+        }
+
+        // Update Go-Live whenever the project start date changes.
+        startDateField.addEventListener('input', applyGoLiveDateValidation);
+        startDateField.addEventListener('change', applyGoLiveDateValidation);
+
+        goLiveDateField.addEventListener('input', applyGoLiveDateValidation);
+        goLiveDateField.addEventListener('change', applyGoLiveDateValidation);
+
+        applyGoLiveDateValidation();
         function applyFieldFormatValidation() {
             const email = emailField.value.trim();
             emailField.setCustomValidity(
