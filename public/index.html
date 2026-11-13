@@ -15,11 +15,47 @@
             background-color: #0f172a !important; color: #e2e8f0 !important; border-color: #475569 !important;
         }
         body.dark-theme input::placeholder, body.dark-theme textarea::placeholder { color: #94a3b8 !important; }
+        /* Make the native calendar icon visible on date inputs in dark mode */
+        body.dark-theme input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            opacity: 0.9;
+            cursor: pointer;
+        }
         body.dark-theme .text-slate-500, body.dark-theme .text-slate-600, body.dark-theme .text-slate-700 { color: #cbd5e1 !important; }
         body.dark-theme .border-slate-200, body.dark-theme .border-slate-300 { border-color: #475569 !important; }
         body.dark-theme .bg-slate-200 { background-color: #334155 !important; color: #e2e8f0 !important; }
         body.dark-theme .bg-slate-200:hover { background-color: #475569 !important; }
         body.dark-theme footer { color: #64748b !important; }
+
+        /* Dark mode styling for dynamically generated AI clarification panels */
+        body.dark-theme .ai-follow-up-container,
+        body.dark-theme [id$="FollowUpContainer"] {
+            background-color: #1e293b !important;
+            border-color: #475569 !important;
+            color: #e2e8f0 !important;
+        }
+        body.dark-theme [id$="FollowUpContainer"] p,
+        body.dark-theme [id$="FollowUpContainer"] label {
+            color: #cbd5e1 !important;
+        }
+        body.dark-theme [id$="FollowUpContainer"] p.font-semibold {
+            color: #fbbf24 !important;
+        }
+        body.dark-theme [id$="FollowUpContainer"] textarea {
+            background-color: #0f172a !important;
+            color: #e2e8f0 !important;
+            border-color: #64748b !important;
+        }
+        body.dark-theme [id$="FollowUpContainer"] textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+        /* Keep clarification action buttons readable in dark mode */
+        body.dark-theme [id$="FollowUpContainer"] .ai-follow-up-submit {
+            color: #ffffff !important;
+        }
+        body.dark-theme [id$="FollowUpContainer"] .ai-follow-up-edit {
+            color: #fbbf24 !important;
+        }
         .theme-toggle { border: 1px solid #475569; border-radius: 9999px; padding: 8px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; transition: background .2s; }
         .theme-toggle:hover { background: #334155; }
     </style>
