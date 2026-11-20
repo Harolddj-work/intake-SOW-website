@@ -25,6 +25,7 @@ const checkpoints = [
     { id: 'systems', label: 'Existing systems', guidance: 'Systems to retain, replace, connect to, or avoid.' },
     { id: 'integrations', label: 'Integrations and data exchange', guidance: 'Systems, APIs, data exchanged, direction, frequency, and ownership.' },
     { id: 'migration', label: 'Data migration', guidance: 'Data to migrate, source, volume, quality, history and migration responsibility.' },
+    { id: 'tech_stack_preference', label: 'Preferred technology stack', guidance: 'Whether the client requires specific technologies, platforms, cloud providers, programming languages, databases, vendors or standards, or whether the delivery team is free to recommend the best-fit stack. Capture constraints and decision owner.' },
     { id: 'security', label: 'Security and compliance', guidance: 'Access controls, privacy, data residency, regulatory and industry requirements.' }
   ]},
   { id: 'volumes', title: 'Volumes & SLAs', items: [
@@ -42,4 +43,10 @@ const checkpoints = [
   ]}
 ];
 
-module.exports = { checkpoints, MAX_FOLLOW_UPS_PER_ITEM: 2 };
+const requiredForStart = [
+  'stakeholders', 'problem', 'use_cases', 'success_criteria',
+  'capabilities', 'users', 'systems', 'integrations', 'security',
+  'start_date', 'go_live', 'deliverables', 'acceptance'
+];
+
+module.exports = { checkpoints, requiredForStart, MAX_FOLLOW_UPS_PER_ITEM: 2 };
