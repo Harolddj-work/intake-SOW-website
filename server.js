@@ -85,67 +85,218 @@ app.post('/api/validate-intake', async (req,res) => {
   }
 });
 
-function safeText(value, max=5000) { return typeof value==='string' ? value.trim().slice(0,max) : ''; }
-function formatTicket(data) {
-  const projectName = safeText(data.projectName,180) || `${safeText(data.companyName,150)} - ${safeText(data.projectType,150)}`;
-  const findPoint = (itemId) => {
-    const a = (data.answers || []).find(x => (x.coveredItemIds || []).includes(itemId));
-    return a ? safeText(a.mainPoint || a.evaluation?.mainPoint || a.answer, 1800) : 'Not captured';
-  };
-  const lines = [
-    'SOW DISCOVERY INTAKE — STRUCTURED PROJECT BRIEF', '',
-    '==================================================', 'PROJECT SNAPSHOT', '==================================================',
-    `Project name: ${projectName}`,
-    `Client / sponsor: ${safeText(data.clientName,150)}`,
-    `Company: ${safeText(data.companyName,150)}`,
-    `Primary contact: ${safeText(data.contactName,100)}`,
-    `Contact email: ${safeText(data.contactEmail,254)}`,
-    `Project type: ${safeText(data.projectType,150)}`,
-    `Project description: ${safeText(data.projectDescription,3000) || 'Not provided'}`,
-    `Target start date: ${findPoint('start_date')}`,
-    `Target go-live date: ${findPoint('go_live')}`,
-    `Technology stack preference: ${findPoint('tech_stack_preference')}`,
-    `Existing systems: ${findPoint('systems')}`,
-    `Integrations: ${findPoint('integrations')}`,
-    `Security / compliance: ${findPoint('security')}`,
-    `Expected volumes: ${findPoint('volume')}`,
-    `Operating hours / coverage: ${findPoint('hours')}`,
-    `Budget: ${findPoint('budget')}`,
-    `Business problem: ${findPoint('problem')}`,
-    `Primary use cases: ${findPoint('use_cases')}`,
-    `Success criteria: ${findPoint('success_criteria')}`,
-    `Key stakeholders / approvers: ${findPoint('stakeholders')}`,
-    `Core deliverables: ${findPoint('deliverables')}`,
-    `Acceptance / sign-off: ${findPoint('acceptance')}`,
-    '', '==================================================', 'FINAL VALIDATION / HANDOVER FLAGS', '=================================================='
-  ];
+function safeText(value, max=5000) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+function compactFallback(value, max=500) {
+  return safeText(value, max)
+    .replace(/^(Ryan|the client)\s+(says|wants|reports|states|requires)\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[. ]+$/, '');
+}
+
+function dateOnly(value) {
+  const text = safeText(value, 1000);
+  const match = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\b/i);
+  return match ? `${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()} ${match[2]}` : '';
+}
+
+async function generateConciseTicketSummary(data) {
+  const answers = Array.isArray(data.answers) ? data.answers : [];
   const validation = data.validationReport || {};
-  const validationWarnings = Array.isArray(validation.warnings) ? validation.warnings : [];
-  const missingRequired = Array.isArray(validation.missingRequired) ? validation.missingRequired : [];
-  if (missingRequired.length) lines.push('Required items still missing or unverified:', ...missingRequired.map(x => `- ${safeText(x.label || x.id,500)}`));
-  if (validationWarnings.length) lines.push('Review warnings:', ...validationWarnings.map(x => `- ${safeText(x,1000)}`));
-  if (!missingRequired.length && !validationWarnings.length) lines.push('No outstanding validation warnings were recorded.');
-  lines.push('', 'Submission status: Submitted with any outstanding warnings retained for project-team review.', '', '==================================================', 'DETAILED DISCOVERY BY CHECKPOINT', '==================================================');
-  for (const cp of checkpoints) {
-    lines.push('', '--------------------------------------------------', cp.title.toUpperCase(), '--------------------------------------------------');
-    const checkpointNote = safeText(data.checkpointNotes?.[cp.id], 3000);
-    if (checkpointNote) lines.push('', 'ADDITIONAL CHECKPOINT NOTES:', checkpointNote);
-    const entries = (data.answers || []).filter(a=>a.checkpointId===cp.id);
-    if (!entries.length) { lines.push('No responses recorded.'); continue; }
-    entries.forEach((a,index)=>{
-      lines.push('', `${index+1}. ${safeText(a.question,2000)}`, `Client / presales answer: ${safeText(a.answer,5000) || 'No answer'}`);
-      if (a.mainPoint || a.evaluation?.mainPoint) lines.push(`Captured main point: ${safeText(a.mainPoint || a.evaluation.mainPoint,1800)}`);
-      if (a.status==='unknown') lines.push(`FLAG: CLIENT DOES NOT KNOW YET — ${safeText(a.reason,1000) || 'No reason provided'}`);
-      if (a.status==='delegated') lines.push('FLAG: CLIENT DELEGATED THIS DECISION TO THE DELIVERY TEAM');
-      if (a.status==='accepted') lines.push('FLAG: PRESALES ACCEPTED ANSWER AS-IS — requires review');
-      if (a.evaluation?.assessment) lines.push(`AI assessment: ${safeText(a.evaluation.assessment,1500)}`);
-      if (a.evaluation?.contradictions?.length) lines.push(`Potential contradictions: ${a.evaluation.contradictions.map(x=>safeText(x,500)).join('; ')}`);
-      if (a.followUpQuestion) lines.push(`Follow-up asked: ${safeText(a.followUpQuestion,1000)}`);
-      if (a.followUpAnswer) lines.push(`Follow-up answer: ${safeText(a.followUpAnswer,3000)}`);
-      if (a.needsReview || a.evaluation?.needsReview || a.evaluation?.fallback) lines.push('FLAG: NEEDS PROJECT TEAM REVIEW');
-    });
+  const answerForItem = (id) => answers.find(a => Array.isArray(a.coveredItemIds) && a.coveredItemIds.includes(id));
+  const extractDateFor = (id) => {
+    const a = answerForItem(id);
+    const source = a ? `${safeText(a.answer, 1500)} ${safeText(a.mainPoint || a.evaluation?.mainPoint, 700)}` : '';
+    const matches = [...source.matchAll(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\b/gi)]
+      .map(m => `${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()} ${m[2]}`);
+    if (!matches.length) return '';
+    return id === 'go_live' ? matches[matches.length - 1] : matches[0];
+  };
+  const answerContext = answers.map((a, index) => ({
+    number: index + 1,
+    checkpoint: safeText(a.checkpointTitle || a.checkpointId, 100),
+    question: safeText(a.question, 700),
+    originalAnswer: safeText(a.answer, 1800),
+    capturedMainPoint: safeText(a.mainPoint || a.evaluation?.mainPoint, 700),
+    status: safeText(a.status || a.evaluation?.disposition, 40) || 'answered',
+    reason: safeText(a.reason || a.evaluation?.reason, 300),
+    needsReview: Boolean(a.needsReview || a.evaluation?.needsReview || a.evaluation?.fallback),
+    coveredItemIds: Array.isArray(a.coveredItemIds) ? a.coveredItemIds : []
+  }));
+
+  // Use the original answers as the source of truth. This prevents an incomplete
+  // AI "main point" from silently dropping systems, dates, counts, or constraints.
+  if (process.env.OPENAI_API_KEY && (process.env.AI_PROVIDER || '').toLowerCase() !== 'mock') {
+    try {
+      const OpenAI = require('openai');
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 35000, maxRetries: 0 });
+      const response = await client.responses.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+        instructions: `You are preparing a concise internal presales handover ticket from discovery meeting notes.
+Use the ORIGINAL client answers as the source of truth; captured main points are secondary hints and may be incomplete.
+Write only the main points. Do not write "Ryan says", "the client wants", "the client reports", or repeat the questions.
+Be concise and factual: short phrases or bullets, not paragraphs.
+Preserve all concrete facts: exact month/year dates, quantities, named platforms, communication channels, operating hours, targets, constraints, and caveats.
+IMPORTANT RECONCILIATION RULE: If an earlier answer names several systems and a later follow-up clarifies the role of one system, keep all the named systems unless the client explicitly says a system is no longer in scope. Example: "CRM, Five9, and Confluence" followed by "Microsoft CRM is the ticketing platform" should become "Microsoft CRM (ticketing), Five9 (telephony), Confluence (knowledge base)"—do not drop Five9 or Confluence.
+For dates, output only the date value, e.g. "January 2027" and "April 2027"; never repeat the same combined sentence under two date fields.
+Do not invent missing details or turn suggestions into confirmed requirements. Put unknown, delegated, accepted-as-is, or needs-review items in internalFollowUps, with the correct distinction.
+Remove duplicate points. Avoid generic filler. If a field is not supported, return an empty string or empty array.
+Use the company/contact/project details only in the project header, not repeated in the requirement bullets.`,
+        input: JSON.stringify({
+          project: {
+            projectName: safeText(data.projectName, 180),
+            company: safeText(data.companyName, 150),
+            contact: safeText(data.contactName, 100),
+            email: safeText(data.contactEmail, 254),
+            projectType: safeText(data.projectType, 150),
+            description: safeText(data.projectDescription, 1000)
+          },
+          originalDiscoveryAnswers: answerContext,
+          validation: {
+            missingRequired: Array.isArray(validation.missingRequired) ? validation.missingRequired : [],
+            unresolvedOptional: Array.isArray(validation.unresolvedOptional) ? validation.unresolvedOptional : [],
+            warnings: Array.isArray(validation.warnings) ? validation.warnings : [],
+            contradictions: Array.isArray(validation.contradictions) ? validation.contradictions : []
+          }
+        }),
+        text: { format: { type: 'json_schema', name: 'concise_sow_handover', strict: true, schema: {
+          type: 'object',
+          properties: {
+            objective: { type: 'string' },
+            businessRequirements: { type: 'array', items: { type: 'string' } },
+            functionalRequirements: { type: 'array', items: { type: 'string' } },
+            systemsAndData: { type: 'array', items: { type: 'string' } },
+            operations: { type: 'array', items: { type: 'string' } },
+            startDate: { type: 'string' },
+            goLiveDate: { type: 'string' },
+            budget: { type: 'string' },
+            deliverables: { type: 'array', items: { type: 'string' } },
+            acceptance: { type: 'array', items: { type: 'string' } },
+            internalFollowUps: { type: 'array', items: { type: 'string' } }
+          },
+          required: ['objective','businessRequirements','functionalRequirements','systemsAndData','operations','startDate','goLiveDate','budget','deliverables','acceptance','internalFollowUps'],
+          additionalProperties: false
+        } } },
+        max_output_tokens: 1100
+      });
+      const result = JSON.parse(response.output_text || '{}');
+      // Keep dates as short values, even if the model returns a full sentence.
+      result.startDate = extractDateFor('start_date') || compactFallback(result.startDate, 100);
+      result.goLiveDate = extractDateFor('go_live') || compactFallback(result.goLiveDate, 100);
+      return result;
+    } catch (error) {
+      console.error('Concise Zendesk summary fallback:', error.message);
+    }
   }
-  lines.push('', 'END OF DISCOVERY INTAKE');
+
+  // Prototype/offline fallback: use saved main points, but normalize wording and dates.
+  const findAnswer = (id) => answers.find(a => Array.isArray(a.coveredItemIds) && a.coveredItemIds.includes(id));
+  const raw = (id) => {
+    const a = findAnswer(id);
+    return a ? safeText(a.answer, 1500) : '';
+  };
+  const point = (id) => {
+    const a = findAnswer(id);
+    return a ? compactFallback(a.mainPoint || a.evaluation?.mainPoint || a.answer) : '';
+  };
+  const dateValue = (id) => extractDateFor(id) || point(id);
+  const unique = (ids) => [...new Set(ids.map(point).filter(Boolean))];
+  const followUps = [];
+  for (const a of answers) {
+    const status = a.status || a.evaluation?.disposition;
+    const itemId = (a.coveredItemIds || [])[0];
+    const cp = checkpoints.find(c => c.items.some(i => i.id === itemId));
+    const item = cp?.items.find(i => i.id === itemId);
+    const label = item?.label || safeText(a.question, 120) || 'Discovery detail';
+    if (status === 'unknown') followUps.push(`${label}: Client does not know yet${a.reason ? ` (${safeText(a.reason, 180)})` : ''}.`);
+    if (status === 'delegated') followUps.push(`${label}: Client requests a delivery-team recommendation.`);
+    if (a.needsReview || a.evaluation?.needsReview || a.evaluation?.fallback) followUps.push(`${label}: Needs internal review.`);
+  }
+  const missing = [...(validation.missingRequired || []), ...(validation.unresolvedOptional || [])];
+  missing.forEach(x => followUps.push(`${safeText(x.label || x.id, 180)}: Not yet confirmed.`));
+
+  const systemAnswers = answers.filter(a => (a.coveredItemIds || []).some(id => ['systems','integrations'].includes(id)));
+  const allSystemText = systemAnswers.map(a => safeText(a.answer, 1500)).join(' ');
+  const knownSystems = [];
+  if (/microsoft\s*crm|microsoft dynamics|dynamics\s*365|crm/i.test(allSystemText)) knownSystems.push(/microsoft/i.test(allSystemText) ? 'Microsoft CRM' : 'CRM');
+  if (/five9/i.test(allSystemText)) knownSystems.push('Five9');
+  if (/confluence/i.test(allSystemText)) knownSystems.push('Confluence');
+  const systemsAndData = [...new Set(knownSystems)];
+  const sections = {
+    objective: point('problem'),
+    businessRequirements: unique(['current_process','pain_points','use_cases','success_criteria']),
+    functionalRequirements: unique(['capabilities','automation','ai_routing','users','channels']),
+    systemsAndData: [...systemsAndData, ...unique(['migration','security','tech_stack_preference'])],
+    operations: unique(['volume','hours','reporting','availability']),
+    startDate: dateValue('start_date'),
+    goLiveDate: dateValue('go_live'),
+    budget: point('budget'),
+    deliverables: unique(['deliverables']),
+    acceptance: unique(['acceptance']),
+    internalFollowUps: [...new Set(followUps)]
+  };
+  return sections;
+}
+
+async function formatTicket(data) {
+  const projectName = safeText(data.projectName,180) || `${safeText(data.companyName,150)} - ${safeText(data.projectType,150)}`;
+  const summary = await generateConciseTicketSummary(data);
+  const lines = [
+    `SOW DISCOVERY — ${projectName}`,
+    '',
+    'PROJECT DETAILS',
+    `Company: ${safeText(data.companyName,150) || 'Not provided'}`,
+    `Contact: ${safeText(data.contactName,100) || 'Not provided'}${safeText(data.contactEmail,254) ? ` | ${safeText(data.contactEmail,254)}` : ''}`,
+    `Project type: ${safeText(data.projectType,150) || 'Not provided'}`
+  ];
+  if (summary.objective) lines.push('', 'PROJECT OBJECTIVE', `- ${summary.objective}`);
+
+  const addList = (title, values) => {
+    const items = Array.isArray(values) ? [...new Set(values.map(x => safeText(x, 450)).filter(Boolean))] : [];
+    if (items.length) lines.push('', title, ...items.map(x => `- ${x}`));
+  };
+  addList('BUSINESS REQUIREMENTS', summary.businessRequirements);
+  addList('FUNCTIONAL REQUIREMENTS', summary.functionalRequirements);
+  addList('SYSTEMS & DATA', summary.systemsAndData);
+  addList('OPERATIONS & SERVICE LEVELS', summary.operations);
+
+  if (summary.startDate || summary.goLiveDate) {
+    lines.push('', 'TIMELINE');
+    if (summary.startDate) lines.push(`- Start: ${summary.startDate}`);
+    if (summary.goLiveDate) lines.push(`- Go-live: ${summary.goLiveDate}`);
+  }
+  if (summary.budget) lines.push('', 'BUDGET', `- ${summary.budget}`);
+  addList('DELIVERABLES', summary.deliverables);
+  addList('ACCEPTANCE CRITERIA', summary.acceptance);
+
+  const followUps = Array.isArray(summary.internalFollowUps) ? [...new Set(summary.internalFollowUps.map(x => safeText(x, 400)).filter(Boolean))] : [];
+  const warnings = Array.isArray(data.validationReport?.warnings) ? data.validationReport.warnings : [];
+  const meaningfulWarnings = warnings
+    .map(w => safeText(w, 350))
+    .filter(w => w && !w.startsWith('Required project detail still missing or unverified:') && !w.startsWith('Unresolved checklist item:') && !w.startsWith('AI audit follow-up:'));
+  for (const warning of meaningfulWarnings) if (!followUps.some(x => x.toLowerCase() === warning.toLowerCase())) followUps.push(warning);
+  const missingDetails = [
+    ...(Array.isArray(data.validationReport?.missingRequired) ? data.validationReport.missingRequired : []),
+    ...(Array.isArray(data.validationReport?.unresolvedOptional) ? data.validationReport.unresolvedOptional : [])
+  ];
+  for (const item of missingDetails) {
+    const label = safeText(item.label || item.id, 250);
+    if (label && !followUps.some(x => x.toLowerCase().includes(label.toLowerCase()))) {
+      followUps.push(`${label}: Not yet confirmed.`);
+    }
+  }
+  const contradictions = Array.isArray(data.validationReport?.contradictions) ? data.validationReport.contradictions : [];
+  contradictions.forEach(x => {
+    const item = `Potential inconsistency: ${safeText(x, 300)}`;
+    if (!followUps.some(y => y.toLowerCase() === item.toLowerCase())) followUps.push(item);
+  });
+
+  lines.push('', 'INTERNAL TEAM FOLLOW-UP');
+  if (followUps.length) lines.push(...followUps.map(x => `- ${x}`));
+  else lines.push('- No outstanding follow-up items recorded.');
+  lines.push('', 'Submission: Submitted for internal review.');
   return lines.join('\n');
 }
 
@@ -162,7 +313,7 @@ app.post('/api/submit-intake', async (req,res) => {
     if(!Array.isArray(data.answers) || data.answers.length===0) return res.status(400).json({success:false,error:'No discovery answers were recorded.'});
     // Do not block Zendesk submission for discovery gaps or validation warnings.
     // Only actual submission requirements (contact details, an answer record, and Zendesk availability) are enforced here.
-    const ticketBody=formatTicket(data);
+    const ticketBody=await formatTicket(data);
     const token=await getZendeskAccessToken();
     const zd=await fetch(`https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/api/v2/tickets.json`,{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
