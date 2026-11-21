@@ -376,7 +376,6 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
 
     const insert = {
       owner_id: req.user.id,
-      created_by: req.user.id,
       client_name: safeText(value('client_name', 'clientName'), 180),
       company_name: safeText(value('company_name', 'companyName'), 180),
       contact_name: safeText(value('contact_name', 'contactName'), 120),
