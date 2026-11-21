@@ -912,7 +912,7 @@ app.post('/api/admin/invites', requireAuth, requireAdmin, async (req, res) => {
       email.trim(),
       {
         data: { full_name: safeText(fullName, 150) },
-        redirectTo: 'https://internal-intake-sow-website.vercel.app/'
+        redirectTo: process.env.APP_URL || 'https://internal-intake-sow-website.vercel.app/'
       }
     );
 
