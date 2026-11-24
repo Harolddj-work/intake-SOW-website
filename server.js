@@ -98,7 +98,7 @@ async function requireAuth(req, res, next) {
     const { data: profile, error: profileError } =
       await userDb
         .from('profiles')
-        .select('id, role, is_active, password_setup_completed')
+        .select('id, role, is_active')
         .eq('id', data.user.id)
         .single();
 
@@ -109,24 +109,10 @@ async function requireAuth(req, res, next) {
       });
     }
 
-    // Incomplete invited accounts may only check their setup status
-    // and complete password setup.
-    if (
-      profile.password_setup_completed === false &&
-      !['/api/me', '/api/complete-invite'].includes(req.path)
-    ) {
-      return res.status(403).json({
-        success: false,
-        code: 'PASSWORD_SETUP_REQUIRED',
-        error: 'Please complete your account password setup before using the application.'
-      });
-    }
-
     req.user = {
       id: data.user.id,
       email: data.user.email,
-      role: profile.role,
-      password_setup_completed: profile.password_setup_completed
+      role: profile.role
     };
 
     req.db = userDb;
@@ -272,7 +258,7 @@ app.get('/api/me', requireAuth, async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, role, is_active, password_setup_completed')
+      .select('id, full_name, role, is_active')
       .eq('id', req.user.id)
       .single();
 
@@ -286,58 +272,6 @@ app.get('/api/me', requireAuth, async (req, res) => {
     });
   } catch (error) {
     dbError(error, res, 'Unable to load your employee profile.');
-  }
-});
-// Complete an invited employee's account setup.
-app.post('/api/complete-invite', requireAuth, async (req, res) => {
-  try {
-    const password = req.body?.password;
-
-    if (typeof password !== 'string' || password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        error: 'Use a password with at least 8 characters.'
-      });
-    }
-
-    const { data: profile, error: profileLookupError } = await supabaseAdmin
-      .from('profiles')
-      .select('password_setup_completed')
-      .eq('id', req.user.id)
-      .single();
-
-    if (profileLookupError) throw profileLookupError;
-
-    if (profile.password_setup_completed) {
-      return res.status(409).json({
-        success: false,
-        error: 'This account has already completed password setup.'
-      });
-    }
-
-    // Set the Auth password first.
-    const { error: passwordError } =
-      await supabaseAdmin.auth.admin.updateUserById(req.user.id, {
-        password
-      });
-
-    if (passwordError) throw passwordError;
-
-    // Only mark setup complete after the password update succeeds.
-    const { error: updateProfileError } = await supabaseAdmin
-      .from('profiles')
-      .update({ password_setup_completed: true })
-      .eq('id', req.user.id);
-
-    if (updateProfileError) throw updateProfileError;
-
-    res.json({
-      success: true,
-      message: 'Password created successfully.'
-    });
-
-  } catch (error) {
-    dbError(error, res, 'Unable to complete password setup. Please try again.');
   }
 });
 
@@ -991,8 +925,7 @@ app.post('/api/admin/invites', requireAuth, requireAdmin, async (req, res) => {
         email: data.user.email || email.trim(),
         full_name: safeText(fullName, 150) || null,
         role: role || 'presales',
-        is_active: true,
-        password_setup_completed: false
+        is_active: true
       }, {
         onConflict: 'id'
       });
