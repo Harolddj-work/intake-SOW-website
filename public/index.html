@@ -585,10 +585,10 @@
           // continuing an invitation callback.
           inviteCallbackPending = false;
 
-          history.replaceState(
+          window.history.replaceState(
             null,
             document.title,
-            location.pathname + location.search
+            window.location.pathname + window.location.search
           );
 
           const { error } = await supabaseClient.auth.signInWithPassword({
@@ -630,10 +630,10 @@
           inviteCallbackPending = false;
 
           // Remove the invitation token from the browser address.
-          history.replaceState(
+          window.history.replaceState(
             null,
             document.title,
-            location.pathname + location.search
+            window.location.pathname + window.location.search
           );
 
           await showAuthenticatedApp({
