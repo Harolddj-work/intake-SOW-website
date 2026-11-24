@@ -484,15 +484,154 @@
     async function loadTeams() { try { const d = await api(currentRole === 'admin' ? '/api/admin/teams' : '/api/teams', undefined, 'GET'); const teams = d.teams || []; for (const id of ['employeeTeam', 'trackingTeam', 'sessionTeam']) { const select = $(id); if (!select) continue; const keep = select.value; select.innerHTML = id === 'trackingTeam' ? '<option value="all">All teams</option>' : id === 'sessionTeam' ? '<option value="">Select a team</option>' : '<option value="">No team assigned</option>'; teams.forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; select.appendChild(o); }); select.value = keep; } } catch (e) { console.warn('Teams could not be loaded:', e.message); } }
     async function loadEmployees() { const host = $('employeesList'); host.innerHTML = '<p class="muted text-sm">Loading employees…</p>'; try { const d = await api('/api/admin/employees', undefined, 'GET'); const employees = d.employees || []; host.innerHTML = employees.length ? employees.map(u => `<div class="flex flex-wrap items-center justify-between gap-2 border-b borderline py-3"><div><div class="font-medium">${escapeHtml(u.full_name || u.fullName || 'Unnamed employee')}</div><div class="muted text-xs">${escapeHtml(u.email || '')} · ${escapeHtml(u.team_name || 'No team')}</div></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(u.role || 'presales')}</span><span class="text-xs ${u.is_active === false ? 'text-red-600' : 'text-emerald-700'}">${u.is_active === false ? 'Inactive' : 'Active'}</span></div></div>`).join('') : '<p class="muted text-sm">No employees found.</p>'; } catch (e) { host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`; } }
     async function inviteEmployee(e) { e.preventDefault(); const btn = $('inviteEmployeeBtn'), status = $('inviteEmployeeStatus'); btn.disabled = true; status.textContent = 'Sending invitation…'; try { await api('/api/admin/invites', { email: $('employeeEmail').value.trim(), fullName: $('employeeFullName').value.trim(), role: $('employeeRole').value, teamId: $('employeeTeam').value || null }); status.textContent = 'Invitation sent successfully.'; $('inviteEmployeeForm').reset(); await loadEmployees(); } catch (err) { status.textContent = err.message; } finally { btn.disabled = false; } }
-    async function showAuthenticatedApp() { const { data: { session: authSession } } = await supabaseClient.auth.getSession(); if (!authSession) { show('loginScreen', true); show('appScreen', false); show('logoutBtn', false); show('userBadge', false); return; } try { const me = await api('/api/me', undefined, 'GET'); currentUser = { ...(me.user || me), ...(me.profile || {}) }; currentRole = me.role || me.profile?.role || currentUser.role; if (!['admin', 'presales'].includes(currentRole)) throw new Error('Your account does not have an application role. Contact an administrator.'); show('loginScreen', false); show('appScreen', true); show('logoutBtn', true); show('userBadge', true); $('userBadge').textContent = currentUser.full_name || currentUser.email || authSession.user.email; $('headerSubtitle').textContent = currentRole === 'admin' ? 'Administrator console · Employee and session oversight' : 'AI-guided discovery for live client meetings'; if (currentRole === 'admin') { show('adminTabs', true); show('employeeTabs', false); setTab('employees'); await loadTeams(); await Promise.all([loadEmployees(), loadAllSessions()]); } else { show('employeeTabs', true); show('adminTabs', false); setTab('discovery'); await loadTeams(); await loadMySessions(); const active = await api('/api/sessions/active', undefined, 'GET'); if (active.session) { session = normalizeSession(active.session); detailsFields.forEach(k => $(k).value = session[k] || ''); show('setup', false); show('workspace', true); await askNext(); } else { session = null; show('setup', true); show('workspace', false); show('review', false); } } } catch (e) { show('loginScreen', true); show('appScreen', false); $('loginError').textContent = e.message; } }
+    async function showAuthenticatedApp({ inviteCallback = false } = {}) {
+      const { data: { session: authSession } } = await supabaseClient.auth.getSession();
+
+      if (!authSession) {
+        show('loginScreen', true);
+        show('appScreen', false);
+        show('logoutBtn', false);
+        show('userBadge', false);
+        show('invitePasswordPanel', false);
+        $('loginForm').classList.remove('hidden');
+        if (inviteCallback) {
+          $('loginError').textContent = 'This invitation link is invalid or expired. Please ask an administrator to send a new invitation.';
+        }
+        return;
+      }
+
+      try {
+        const me = await api('/api/me', undefined, 'GET');
+        currentUser = { ...(me.user || me), ...(me.profile || {}) };
+        currentRole = me.role || me.profile?.role || currentUser.role;
+
+        if (me.profile?.password_setup_completed === false) {
+          show('loginScreen', true);
+          show('appScreen', false);
+          show('logoutBtn', false);
+          show('userBadge', false);
+          show('invitePasswordPanel', true);
+          $('loginForm').classList.add('hidden');
+          $('inviteError').textContent = '';
+          return;
+        }
+
+        if (inviteCallback) {
+          show('loginScreen', true);
+          show('appScreen', false);
+          show('logoutBtn', false);
+          show('userBadge', false);
+          show('invitePasswordPanel', false);
+          $('loginForm').classList.remove('hidden');
+          $('loginError').textContent = 'This invitation link has already been used or is invalid. Please sign in with your password.';
+          return;
+        }
+
+        if (!['admin', 'presales'].includes(currentRole)) {
+          throw new Error('Your account does not have an application role. Contact an administrator.');
+        }
+
+        show('loginScreen', false);
+        show('appScreen', true);
+        show('logoutBtn', true);
+        show('userBadge', true);
+        $('userBadge').textContent = currentUser.full_name || currentUser.email || authSession.user.email;
+        $('headerSubtitle').textContent = currentRole === 'admin' ? 'Administrator console · Employee and session oversight' : 'AI-guided discovery for live client meetings';
+
+        if (currentRole === 'admin') {
+          show('adminTabs', true);
+          show('employeeTabs', false);
+          setTab('employees');
+          await loadTeams();
+          await Promise.all([loadEmployees(), loadAllSessions()]);
+        } else {
+          show('employeeTabs', true);
+          show('adminTabs', false);
+          setTab('discovery');
+          await loadTeams();
+          await loadMySessions();
+          const active = await api('/api/sessions/active', undefined, 'GET');
+          if (active.session) {
+            session = normalizeSession(active.session);
+            detailsFields.forEach(k => $(k).value = session[k] || '');
+            show('setup', false);
+            show('workspace', true);
+            await askNext();
+          } else {
+            session = null;
+            show('setup', true);
+            show('workspace', false);
+            show('review', false);
+          }
+        }
+      } catch (e) {
+        show('loginScreen', true);
+        show('appScreen', false);
+        $('loginError').textContent = e.message;
+      }
+    }
     $('loginForm').addEventListener('submit', async e => { e.preventDefault(); const btn = $('loginBtn'); btn.disabled = true; $('loginError').textContent = 'Signing in…'; try { const { error } = await supabaseClient.auth.signInWithPassword({ email: $('loginEmail').value.trim(), password: $('loginPassword').value }); if (error) throw error; $('loginError').textContent = ''; await showAuthenticatedApp(); } catch (err) { $('loginError').textContent = err.message || 'Unable to sign in.'; } finally { btn.disabled = false; } });
     $('logoutBtn').onclick = async () => { await supabaseClient.auth.signOut(); session = null; currentUser = null; currentRole = null; show('appScreen', false); show('loginScreen', true); show('logoutBtn', false); show('userBadge', false); $('loginPassword').value = ''; };
-    $('setInvitePasswordBtn').onclick = async () => { try { const password = $('invitePassword').value; if (password.length < 8) throw new Error('Use at least 8 characters.'); const { error } = await supabaseClient.auth.updateUser({ password }); if (error) throw error; show('invitePasswordPanel', false); $('loginForm').classList.remove('hidden'); await showAuthenticatedApp(); } catch (e) { $('inviteError').textContent = e.message; } };
+    $('setInvitePasswordBtn').onclick = async () => {
+      const btn = $('setInvitePasswordBtn');
+      btn.disabled = true;
+      $('inviteError').textContent = '';
+      try {
+        const password = $('invitePassword').value;
+        if (password.length < 8) throw new Error('Use at least 8 characters.');
+        await api('/api/complete-invite', { password });
+        $('invitePassword').value = '';
+        history.replaceState(null, document.title, location.pathname + location.search);
+        await showAuthenticatedApp();
+      } catch (e) {
+        $('inviteError').textContent = e.message || 'Unable to create your password. Please try again.';
+      } finally {
+        btn.disabled = false;
+      }
+    };
     $('discoveryTabBtn').onclick = () => setTab('discovery'); $('sessionManagerTabBtn').onclick = async () => { setTab('manager'); await loadMySessions(); }; $('newEmployeesTabBtn').onclick = () => setTab('employees'); $('sessionTrackingTabBtn').onclick = async () => { setTab('tracking'); await loadAllSessions(); };
     $('closeSessionDetailBtn').onclick = () => show('sessionDetailPanel', false); $('sessionDetailPanel').addEventListener('click', e => { if (e.target.id === 'sessionDetailPanel') show('sessionDetailPanel', false); }); $('refreshMySessionsBtn').onclick = loadMySessions; $('refreshAllSessionsBtn').onclick = loadAllSessions; $('refreshEmployeesBtn').onclick = loadEmployees; $('inviteEmployeeForm').addEventListener('submit', inviteEmployee); $('sessionVisibility').addEventListener('change', () => { show('sessionTeamWrap', $('sessionVisibility').value === 'team'); }); $('trackingSearch').addEventListener('input', renderAllSessions); $('trackingStatus').addEventListener('change', renderAllSessions); $('trackingTeam').addEventListener('change', renderAllSessions);
     document.addEventListener('click', e => { const resume = e.target.closest('[data-resume-session]'); const view = e.target.closest('[data-view-session]'); if (resume) openSavedSession(resume.dataset.resumeSession); if (view) openSessionDetail(view.dataset.viewSession); });
     async function openSessionDetail(id) { try { const d = await api(`/api/sessions/${id}`, undefined, 'GET'); const s = normalizeSession(d.session || d); $('detailTitle').textContent = s.project_name || s.projectName || s.company_name || s.companyName || 'Discovery session'; $('detailMeta').textContent = `${s.company_name || s.companyName || 'Company'} · ${s.owner?.full_name || s.owner_name || 'Employee'} · ${statusLabel(s.status)} · Updated ${formatDate(s.updated_at || s.updatedAt)}`; const answers = s.answers || []; $('detailAnswers').innerHTML = answers.length ? answers.map(a => `<article class="border borderline rounded-xl p-4"><div class="text-xs uppercase tracking-wide muted">${escapeHtml(a.checkpoint_id || a.checkpointId || 'Checkpoint')} · ${escapeHtml(a.status || 'answered')}</div><div class="font-semibold mt-1">${escapeHtml(a.question || '')}</div><p class="chat text-sm mt-2">${escapeHtml(a.answer || '')}</p>${a.follow_up_question || a.followUpQuestion ? `<div class="mt-3 text-sm"><b>Follow-up:</b> ${escapeHtml(a.follow_up_question || a.followUpQuestion)}<p class="chat mt-1">${escapeHtml(a.follow_up_answer || a.followUpAnswer || '')}</p></div>` : ''}${a.needs_review || a.needsReview ? '<div class="mt-2 text-xs font-semibold text-amber-700">Needs review</div>' : ''}</article>`).join('') : '<p class="muted text-sm">No answers have been recorded.</p>'; show('sessionDetailPanel', true); } catch (e) { alert('Unable to view session: ' + e.message); } }
-    (async () => { try { const configResponse = await fetch('/api/public-config'); const publicConfig = await configResponse.json(); if (!configResponse.ok || !publicConfig.supabaseUrl || !publicConfig.supabasePublishableKey) throw new Error('Supabase browser configuration is unavailable. Check the server .env settings.'); supabaseClient = window.supabase.createClient(publicConfig.supabaseUrl, publicConfig.supabasePublishableKey); const r = await fetch('/api/intake-config'); config = await r.json(); if (!config.checkpoints) throw new Error('Config unavailable'); const inviteLink = location.hash.includes('type=invite'); if (inviteLink) { show('loginScreen', true); show('appScreen', false); show('invitePasswordPanel', true); $('loginForm').classList.add('hidden'); } else { show('invitePasswordPanel', false); $('loginForm').classList.remove('hidden'); await showAuthenticatedApp(); } supabaseClient.auth.onAuthStateChange(async (event) => { if (event === 'SIGNED_OUT') { session = null; currentUser = null; currentRole = null; show('appScreen', false); show('loginScreen', true); show('logoutBtn', false); show('userBadge', false); } }); } catch (e) { $('loginError').textContent = 'Unable to initialize the application: ' + e.message; } })();
+    (async () => {
+      try {
+        // Keep track of the callback even if Supabase consumes/removes the URL fragment.
+        const inviteCallback =
+          /type=invite/i.test(location.hash) ||
+          /error_code=(otp_expired|otp_disabled|access_denied)/i.test(location.hash);
+
+        const configResponse = await fetch('/api/public-config');
+        const publicConfig = await configResponse.json();
+        if (!configResponse.ok || !publicConfig.supabaseUrl || !publicConfig.supabasePublishableKey) {
+          throw new Error('Supabase browser configuration is unavailable. Check the server .env settings.');
+        }
+
+        supabaseClient = window.supabase.createClient(publicConfig.supabaseUrl, publicConfig.supabasePublishableKey);
+        const r = await fetch('/api/intake-config');
+        config = await r.json();
+        if (!config.checkpoints) throw new Error('Config unavailable');
+
+        show('loginScreen', true);
+        show('appScreen', false);
+        await showAuthenticatedApp({ inviteCallback });
+
+        supabaseClient.auth.onAuthStateChange(async (event) => {
+          if (event === 'SIGNED_OUT') {
+            session = null;
+            currentUser = null;
+            currentRole = null;
+            show('appScreen', false);
+            show('loginScreen', true);
+            show('invitePasswordPanel', false);
+            $('loginForm').classList.remove('hidden');
+            show('logoutBtn', false);
+            show('userBadge', false);
+          }
+        });
+      } catch (e) {
+        $('loginError').textContent = 'Unable to initialize the application: ' + e.message;
+      }
+    })();
   </script>
 </body>
 
