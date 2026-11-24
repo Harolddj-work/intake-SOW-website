@@ -493,7 +493,8 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
           : {},
         needs_review: Boolean(a.needsReview),
         follow_up_question: safeText(a.followUpQuestion, 3000),
-        follow_up_answer: safeText(a.followUpAnswer, 12000)
+        follow_up_answer: safeText(a.followUpAnswer, 12000),
+        follow_up_main_point: safeText(a.followUpMainPoint, 3000)
       }));
 
       const { error: answerError } = await supabaseAdmin
