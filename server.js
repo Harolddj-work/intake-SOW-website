@@ -823,7 +823,7 @@ app.get('/api/admin/employees', requireAuth, requireAdmin, async (_req, res) => 
     ] = await Promise.all([
       supabaseAdmin
         .from('profiles')
-        .select('id, full_name, role, is_active')
+        .select('id, full_name, role, is_active, password_setup_completed')
         .order('full_name'),
 
       supabaseAdmin
@@ -844,9 +844,11 @@ app.get('/api/admin/employees', requireAuth, requireAdmin, async (_req, res) => 
       (authUsers.users || []).map(u => [u.id, u.email])
     );
 
+    const teamIdByUser = new Map();
     const teamsByUser = new Map();
 
     for (const m of memberships || []) {
+      teamIdByUser.set(m.user_id, m.team_id);
       const prev = teamsByUser.get(m.user_id) || [];
 
       if (m.teams?.name) {
@@ -861,11 +863,137 @@ app.get('/api/admin/employees', requireAuth, requireAdmin, async (_req, res) => 
       employees: (profiles || []).map(p => ({
         ...p,
         email: emails.get(p.id) || '',
-        team_name: (teamsByUser.get(p.id) || []).join(', ') || 'No team'
+        team_id: teamIdByUser.get(p.id) || null,
+        team_name: (teamsByUser.get(p.id) || []).join(', ') || 'No team',
+        password_setup_completed: Boolean(p.password_setup_completed)
       }))
     });
   } catch (error) {
     dbError(error, res, 'Unable to load employees.');
+  }
+});
+
+// Mark the invited account as fully set up after the user chooses a password.
+app.patch('/api/me/password-setup', requireAuth, async (req, res) => {
+  try {
+    if (req.body?.completed !== true) {
+      return res.status(400).json({ success: false, error: 'Password setup confirmation is required.' });
+    }
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({ password_setup_completed: true })
+      .eq('id', req.user.id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    dbError(error, res, 'Unable to update account setup status.');
+  }
+});
+
+// Admin: change an employee's application role and single-team assignment.
+app.patch('/api/admin/employees/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { role, teamId = null } = req.body || {};
+    if (!['admin', 'presales'].includes(role)) {
+      return res.status(400).json({ success: false, error: 'Role must be admin or presales.' });
+    }
+    if (userId === req.user.id && role !== 'admin') {
+      return res.status(400).json({ success: false, error: 'You cannot remove your own administrator access.' });
+    }
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('profiles').select('id, role').eq('id', userId).maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return res.status(404).json({ success: false, error: 'Employee not found.' });
+    if (existing.role === 'admin' && role !== 'admin') {
+      const { count, error: countError } = await supabaseAdmin
+        .from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin');
+      if (countError) throw countError;
+      if ((count || 0) <= 1) return res.status(409).json({ success: false, error: 'At least one administrator account must remain.' });
+    }
+
+    if (teamId) {
+      const { data: team, error: teamError } = await supabaseAdmin
+        .from('teams').select('id').eq('id', teamId).maybeSingle();
+      if (teamError) throw teamError;
+      if (!team) return res.status(400).json({ success: false, error: 'Selected team does not exist.' });
+    }
+
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles').update({ role }).eq('id', userId);
+    if (profileError) throw profileError;
+
+    const { error: removeMembershipError } = await supabaseAdmin
+      .from('team_members').delete().eq('user_id', userId);
+    if (removeMembershipError) throw removeMembershipError;
+
+    if (teamId) {
+      const { error: addMembershipError } = await supabaseAdmin
+        .from('team_members').insert({ user_id: userId, team_id: teamId });
+      if (addMembershipError) throw addMembershipError;
+    }
+
+    res.json({ success: true, message: 'Employee access updated.' });
+  } catch (error) {
+    dbError(error, res, 'Unable to update employee access.');
+  }
+});
+
+// Admin: permanently remove the account from Supabase Auth and its owned intake records.
+app.delete('/api/admin/employees/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    if (userId === req.user.id) {
+      return res.status(400).json({ success: false, error: 'You cannot delete your own administrator account.' });
+    }
+
+    const { data: targetProfile, error: targetProfileError } = await supabaseAdmin
+      .from('profiles').select('id, role').eq('id', userId).maybeSingle();
+    if (targetProfileError) throw targetProfileError;
+    if (!targetProfile) return res.status(404).json({ success: false, error: 'Employee not found.' });
+    if (targetProfile.role === 'admin') {
+      const { count, error: countError } = await supabaseAdmin
+        .from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin');
+      if (countError) throw countError;
+      if ((count || 0) <= 1) return res.status(409).json({ success: false, error: 'The last administrator account cannot be deleted.' });
+    }
+
+    const { data: ownedSessions, error: sessionsError } = await supabaseAdmin
+      .from('discovery_sessions').select('id').eq('owner_id', userId);
+    if (sessionsError) throw sessionsError;
+    const sessionIds = (ownedSessions || []).map(row => row.id);
+
+    if (sessionIds.length) {
+      const cleanup = await Promise.all([
+        supabaseAdmin.from('discovery_answers').delete().in('session_id', sessionIds),
+        supabaseAdmin.from('session_submissions').delete().in('session_id', sessionIds),
+        supabaseAdmin.from('active_session_claims').delete().in('session_id', sessionIds),
+        supabaseAdmin.from('discovery_sessions').delete().in('id', sessionIds)
+      ]);
+      const failed = cleanup.find(result => result.error);
+      if (failed?.error) throw failed.error;
+    }
+
+    // Remove any claims/submissions created by this user on sessions owned by others.
+    const dependentCleanup = await Promise.all([
+      supabaseAdmin.from('active_session_claims').delete().eq('user_id', userId),
+      supabaseAdmin.from('session_submissions').delete().eq('submitted_by', userId),
+      supabaseAdmin.from('team_members').delete().eq('user_id', userId),
+      supabaseAdmin.from('audit_logs').update({ user_id: null }).eq('user_id', userId)
+    ]);
+    const dependentFailure = dependentCleanup.find(result => result.error);
+    if (dependentFailure?.error) throw dependentFailure.error;
+
+    const { error: profileDeleteError } = await supabaseAdmin
+      .from('profiles').delete().eq('id', userId);
+    if (profileDeleteError) throw profileDeleteError;
+
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (authDeleteError) throw authDeleteError;
+
+    res.json({ success: true, message: 'Employee and Supabase Auth account deleted.' });
+  } catch (error) {
+    dbError(error, res, 'Unable to delete this employee and Auth account.');
   }
 });
 
@@ -944,7 +1072,8 @@ app.post('/api/admin/invites', requireAuth, requireAdmin, async (req, res) => {
         email: data.user.email || email.trim(),
         full_name: safeText(fullName, 150) || null,
         role: role || 'presales',
-        is_active: true
+        is_active: true,
+        password_setup_completed: false
       }, {
         onConflict: 'id'
       });

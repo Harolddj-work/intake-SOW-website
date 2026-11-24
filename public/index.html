@@ -77,8 +77,34 @@
       }
 
       button:disabled {
-        opacity: 0.55;
+        opacity: 0.65;
         cursor: not-allowed;
+      }
+
+      .loading-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 9999px;
+        animation: loading-spin 0.7s linear infinite;
+        flex: 0 0 auto;
+        vertical-align: -0.15em;
+      }
+
+      .loading-spinner-sm {
+        width: 0.85rem;
+        height: 0.85rem;
+        border-width: 2px;
+      }
+
+      @keyframes loading-spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .loading-spinner { animation-duration: 1.8s; }
       }
 
       .tab-active {
@@ -100,11 +126,31 @@
         background: #fff;
       }
 
-      body.dark .field {
-        background: #0f172a;
+      body.dark .field,
+      body.dark input:not([type="checkbox"]),
+      body.dark textarea,
+      body.dark select {
+        background: #111c30;
         border-color: #475569;
-        color: #f8fafc;
+        color: #e5edf8;
       }
+
+      body.dark .bg-slate-50 { background-color: #0b1220 !important; }
+      body.dark .bg-white { background-color: #172338 !important; }
+      body.dark .bg-slate-100 { background-color: #26364d !important; color: #e2e8f0 !important; }
+      body.dark .bg-blue-50 { background-color: #172d4b !important; color: #dbeafe !important; }
+      body.dark .bg-emerald-50 { background-color: #12352f !important; color: #d1fae5 !important; }
+      body.dark .bg-amber-50 { background-color: #3a2c16 !important; color: #fef3c7 !important; }
+      body.dark .text-slate-900, body.dark .text-slate-800 { color: #e5edf8 !important; }
+      body.dark .text-slate-700, body.dark .text-slate-600 { color: #cbd5e1 !important; }
+      body.dark .text-blue-700 { color: #93c5fd !important; }
+      body.dark .text-emerald-700 { color: #6ee7b7 !important; }
+      body.dark .text-amber-700 { color: #fcd34d !important; }
+      body.dark .text-red-600 { color: #fca5a5 !important; }
+      body.dark .border-slate-200, body.dark .border-slate-300 { border-color: #3b4b63 !important; }
+      body.dark .shadow-sm, body.dark .shadow { box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+      body.dark option { background: #172338; color: #e5edf8; }
+      body.dark .loading-panel { background: #172d4b; border-color: #31547b; color: #dbeafe; }
     </style>
   </head>
 
@@ -123,7 +169,12 @@
         </div>
       </div>
     </header>
-    <section id="loginScreen" class="max-w-md mx-auto px-4 py-12">
+    <section id="authLoading" class="max-w-md mx-auto px-4 py-16" role="status" aria-live="polite">
+      <div class="panel loading-panel rounded-2xl p-8 flex items-center justify-center gap-3 text-sm">
+        <span class="loading-spinner" aria-hidden="true"></span><span>Checking your signed-in account…</span>
+      </div>
+    </section>
+    <section id="loginScreen" class="hidden max-w-md mx-auto px-4 py-12">
       <div class="panel rounded-2xl p-6 sm:p-8 shadow-sm">
         <div class="text-xs uppercase tracking-widest text-blue-700 font-semibold">Secure employee access</div>
         <h2 class="text-2xl font-bold mt-2">Welcome back</h2>
@@ -266,7 +317,7 @@
               <h3 class="font-semibold">Discovery conversation</h3>
               <div class="flex gap-3">
                 <button id="refreshBtn" class="text-sm underline text-blue-700">↻ Retry / refresh</button
-                ><button id="backBtn" class="text-sm underline muted">← Previous checkpoint</button>
+                ><button id="backBtn" class="text-sm underline muted hidden">← Previous checkpoint</button>
               </div>
             </div>
             <div id="conversation" class="space-y-4 min-h-24"></div>
@@ -291,7 +342,10 @@
               <p id="answerError" class="text-sm text-red-600 mt-2" role="alert"></p>
               <button id="continueAnywayBtn" class="hidden mt-2 text-sm underline text-amber-700">Continue with this answer and flag it for review</button>
             </div>
-            <div id="busy" class="hidden text-sm text-blue-700 mt-4">Reviewing the answer and preparing the next question…</div>
+            <div id="busy" class="hidden mt-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 px-4 py-3 text-sm flex items-center gap-3" role="status" aria-live="polite">
+              <span class="loading-spinner" aria-hidden="true"></span>
+              <span id="busyMessage">Reviewing the answer and preparing the next question…</span>
+            </div>
             <div id="checkpointDone" class="hidden mt-5 rounded-xl bg-emerald-50 text-emerald-900 p-4">
               <div class="font-semibold">Checkpoint complete</div>
               <p class="text-sm mt-1">All checklist requirements have been covered or explicitly flagged.</p>
@@ -308,8 +362,8 @@
             </div>
           </div>
           <div class="flex justify-between gap-3">
-            <button id="saveBtn" class="text-sm underline muted">Save progress now</button
-            ><button id="reviewBtn" class="text-sm underline muted">Preview all answers</button>
+            <span id="autosaveStatus" class="text-xs muted" role="status" aria-live="polite">Changes save automatically</span>
+            <button id="reviewBtn" class="text-sm underline muted">Preview all answers</button>
           </div>
         </section>
 
@@ -397,6 +451,12 @@
             <h3 class="font-semibold">Existing employees</h3>
             <button id="refreshEmployeesBtn" class="text-sm underline text-blue-700">Refresh</button>
           </div>
+          <div class="mt-4 max-w-xs">
+            <label class="block text-xs font-semibold muted mb-1" for="employeeRoleFilter">Filter by access role</label>
+            <select id="employeeRoleFilter" class="field">
+              <option value="all">All access roles</option><option value="admin">Admin</option><option value="presales">Presales</option>
+            </select>
+          </div>
           <div id="employeesList" class="mt-4 space-y-2">
             <p class="muted text-sm">Loading employees…</p>
           </div>
@@ -475,7 +535,22 @@
         currentRole = null,
         saveTimer = null,
         allSessionsCache = [],
-        mySessionsCache = [];
+        mySessionsCache = [],
+        employeesCache = [];
+      const CACHE_TTL_MS = 5 * 60 * 1000;
+      function cacheKey(name) { return `sow-intake:${currentUser?.id || "guest"}:${name}`; }
+      function readCache(name) {
+        try {
+          const item = JSON.parse(sessionStorage.getItem(cacheKey(name)) || "null");
+          return item && Date.now() - item.savedAt < CACHE_TTL_MS ? item.data : null;
+        } catch (_) { return null; }
+      }
+      function writeCache(name, data) {
+        try { sessionStorage.setItem(cacheKey(name), JSON.stringify({ savedAt: Date.now(), data })); } catch (_) {}
+      }
+      function clearAppCache() {
+        try { Object.keys(sessionStorage).filter(k => k.startsWith("sow-intake:")).forEach(k => sessionStorage.removeItem(k)); } catch (_) {}
+      }
       const detailsFields = ["clientName", "companyName", "contactName", "contactEmail", "projectName", "projectType", "projectDescription"];
       function detailsFromForm() {
         return {
@@ -561,6 +636,22 @@
         div.innerHTML = `<div class="text-xs font-bold uppercase tracking-wide mb-1">${kind === "ai" ? "Discovery assistant" : "Presales response"}</div><div>${escapeHtml(text)}</div>${extra ? `<div class="mt-2 text-xs font-semibold">${escapeHtml(extra)}</div>` : ""}`;
         $("conversation").appendChild(div);
       }
+      async function withButtonLoading(button, loadingLabel, task) {
+        if (!button || button.disabled) return;
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        button.innerHTML = `<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>${escapeHtml(loadingLabel)}</span>`;
+        button.classList.add("inline-flex", "items-center", "justify-center", "gap-2");
+        try {
+          return await task();
+        } finally {
+          button.innerHTML = originalHtml;
+          button.disabled = false;
+          button.removeAttribute("aria-busy");
+        }
+      }
+
       async function api(url, body, method = "POST") {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 45000);
@@ -588,6 +679,8 @@
       }
       function save() {
         if (!session?.id) return;
+        const autosaveStatus = $("autosaveStatus");
+        if (autosaveStatus) autosaveStatus.textContent = "Saving changes…";
         session.updatedAt = new Date().toISOString();
         clearTimeout(saveTimer);
         saveTimer = setTimeout(async () => {
@@ -612,7 +705,9 @@
             for (let i = 0; i < (session.answers || []).length; i++) {
               await api(`/api/sessions/${session.id}/answers`, { ...session.answers[i], sequence_number: i + 1 }, "POST");
             }
+            if (autosaveStatus) autosaveStatus.textContent = "All changes saved";
           } catch (e) {
+            if (autosaveStatus) autosaveStatus.textContent = "Autosave failed — retrying on next change";
             console.error("Session autosave failed:", e);
             const el = $("setupError");
             if (el) el.textContent = "Autosave failed: " + e.message;
@@ -664,6 +759,7 @@
         $("checkpointTitle").textContent = cp.title;
         $("checkpointCount").textContent = `Checkpoint ${session.checkpointIndex + 1} of 6`;
         $("checkpointHint").textContent = `${cp.items.length} information areas · AI-generated questions`;
+        show("backBtn", session.checkpointIndex > 0);
         $("progressBar").style.width = `${(session.checkpointIndex / 6) * 100}%`;
         renderPills();
       }
@@ -687,12 +783,14 @@
           clearTimeout(timer);
         }
       }
-      function setBusy(on) {
+      function setBusy(on, message = "Reviewing the answer and preparing the next question…") {
+        $("busyMessage").textContent = message;
         show("busy", on);
         $("sendBtn").disabled = on;
         $("unknownBtn").disabled = on;
         $("acceptBtn").disabled = on;
         $("refreshBtn").disabled = on;
+        $("busy").setAttribute("aria-busy", String(on));
       }
       function renderExistingHistory() {
         $("conversation").innerHTML = "";
@@ -738,7 +836,7 @@
         show("answerArea", false);
         $("answerError").textContent = "";
         show("continueAnywayBtn", false);
-        setBusy(true);
+        setBusy(true, "Preparing your next discovery question…");
         try {
           const d = await publicApi("/api/next-question", {
             checkpointId: cp.id,
@@ -867,7 +965,7 @@
         }
         if (!pending) return;
         $("answerError").textContent = "";
-        setBusy(true);
+        setBusy(true, "Reviewing the answer with AI…");
         try {
           const d = await publicApi("/api/evaluate-dynamic-answer", {
             checkpointId: checkpoint().id,
@@ -972,7 +1070,7 @@
           return;
         }
         const old = pending;
-        setBusy(true);
+        setBusy(true, "Reviewing your follow-up answer…");
         try {
           const d = await publicApi("/api/evaluate-dynamic-answer", {
             checkpointId: checkpoint().id,
@@ -1075,7 +1173,9 @@
       async function runFinalValidation() {
         const btn = $("validateBtn");
         btn.disabled = true;
-        btn.textContent = "Checking completeness…";
+        btn.setAttribute("aria-busy", "true");
+        btn.innerHTML = '<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>Checking completeness…</span>';
+        btn.classList.add("inline-flex", "items-center", "gap-2");
         $("validationResults").classList.remove("hidden");
         $("validationResults").textContent = "Checking required information, unresolved items and possible contradictions…";
         try {
@@ -1106,7 +1206,9 @@
           $("validationResults").textContent = e.message + " Please retry the final validation review.";
         } finally {
           btn.disabled = false;
-          btn.textContent = "Run final completeness check";
+          btn.removeAttribute("aria-busy");
+          btn.innerHTML = "Run final completeness check";
+          btn.classList.remove("inline-flex", "items-center", "gap-2");
         }
       }
       $("themeBtn").onclick = () => {
@@ -1114,7 +1216,7 @@
         localStorage.setItem("sowTheme", document.body.classList.contains("dark") ? "dark" : "light");
       };
       if (localStorage.getItem("sowTheme") === "dark") document.body.classList.add("dark");
-      $("startBtn").onclick = () => startSession(false);
+      $("startBtn").onclick = () => withButtonLoading($("startBtn"), "Starting discovery…", () => startSession(false));
       $("sendBtn").onclick = () => (pending?.isFollowUp ? submitFollowUp() : submitAnswer());
       $("unknownBtn").onclick = () => {
         if (!pending) return;
@@ -1195,10 +1297,6 @@
         askNext();
       };
       $("validateBtn").onclick = runFinalValidation;
-      $("saveBtn").onclick = () => {
-        save();
-        alert("Saving progress to your account…");
-      };
       $("reviewBtn").onclick = preview;
       $("closeReviewBtn").onclick = $("backToSessionBtn").onclick = () => {
         show("review", false);
@@ -1211,7 +1309,10 @@
         }
         const btn = $("submitTicketBtn");
         btn.disabled = true;
-        $("submitStatus").textContent = "Submitting to Zendesk…";
+        btn.setAttribute("aria-busy", "true");
+        btn.innerHTML = '<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>Submitting to Zendesk…</span>';
+        btn.classList.add("inline-flex", "items-center", "gap-2");
+        $("submitStatus").textContent = "Sending the discovery details to Zendesk. Please keep this page open…";
         try {
           const r = await api("/api/submit-intake", { sessionId: session.id });
           $("submitStatus").innerHTML =
@@ -1222,6 +1323,9 @@
         } catch (e) {
           $("submitStatus").textContent = e.message;
           btn.disabled = false;
+          btn.removeAttribute("aria-busy");
+          btn.innerHTML = "Confirm and submit to Zendesk";
+          btn.classList.remove("inline-flex", "items-center", "gap-2");
         }
       };
 
@@ -1254,39 +1358,55 @@
         const progress = Number(item.checkpoint_index ?? item.checkpointIndex ?? 0);
         return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · ${escapeHtml(item.client_name || item.clientName || "Client not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
       }
+      function renderMySessions() {
+        const host = $("mySessionsList");
+        const active = mySessionsCache.filter((x) => ["draft", "in_progress", "review"].includes(x.status));
+        $("myActiveCount").textContent = active.length;
+        $("mySubmittedCount").textContent = mySessionsCache.filter((x) => ["submitted", "completed"].includes(x.status)).length;
+        $("mySharedCount").textContent = mySessionsCache.filter((x) => x.visibility === "team" && x.owner_id !== currentUser.id).length;
+        host.innerHTML = mySessionsCache.length ? mySessionsCache.map((x) => sessionCard(x, false)).join("") : '<div class="panel rounded-xl p-6 muted text-sm">You do not have any saved discovery sessions yet.</div>';
+      }
       async function loadMySessions() {
         const host = $("mySessionsList");
-        host.innerHTML = '<div class="panel rounded-xl p-5 muted text-sm">Loading your sessions…</div>';
+        const cached = readCache("my-sessions");
+        if (cached) { mySessionsCache = cached; renderMySessions(); }
+        else host.innerHTML = '<div class="panel loading-panel rounded-xl p-5 muted text-sm flex items-center gap-3"><span class="loading-spinner"></span>Loading your sessions…</div>';
         try {
           const d = await api("/api/sessions", undefined, "GET");
           mySessionsCache = d.sessions || [];
-          const active = mySessionsCache.filter((x) => ["draft", "in_progress", "review"].includes(x.status));
-          $("myActiveCount").textContent = active.length;
-          $("mySubmittedCount").textContent = mySessionsCache.filter((x) => ["submitted", "completed"].includes(x.status)).length;
-          $("mySharedCount").textContent = mySessionsCache.filter((x) => x.visibility === "team" && x.owner_id !== currentUser.id).length;
-          host.innerHTML = mySessionsCache.length
-            ? mySessionsCache.map((x) => sessionCard(x, false)).join("")
-            : '<div class="panel rounded-xl p-6 muted text-sm">You do not have any saved discovery sessions yet.</div>';
+          writeCache("my-sessions", mySessionsCache);
+          renderMySessions();
+          $("mySessionsError").textContent = "";
         } catch (e) {
-          host.innerHTML = "";
+          if (!cached) host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`;
           $("mySessionsError").textContent = e.message;
         }
       }
       async function loadAllSessions() {
         const host = $("allSessionsList");
-        host.innerHTML = '<div class="panel rounded-xl p-5 muted text-sm">Loading session tracking…</div>';
+        const cached = readCache("admin-sessions");
+        if (cached) {
+          allSessionsCache = cached;
+          updateAdminSessionCounts();
+          renderAllSessions();
+        } else host.innerHTML = '<div class="panel loading-panel rounded-xl p-5 muted text-sm flex items-center gap-3"><span class="loading-spinner"></span>Loading session tracking…</div>';
         try {
           const d = await api("/api/admin/sessions", undefined, "GET");
           allSessionsCache = d.sessions || [];
-          $("allTotalCount").textContent = allSessionsCache.length;
-          $("allActiveCount").textContent = allSessionsCache.filter((x) => ["draft", "in_progress"].includes(x.status)).length;
-          $("allSubmittedCount").textContent = allSessionsCache.filter((x) => ["submitted", "completed"].includes(x.status)).length;
-          $("allReviewCount").textContent = allSessionsCache.filter((x) => x.status === "review" || x.needs_review).length;
+          writeCache("admin-sessions", allSessionsCache);
+          updateAdminSessionCounts();
           renderAllSessions();
+          $("allSessionsError").textContent = "";
         } catch (e) {
-          host.innerHTML = "";
+          if (!cached) host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`;
           $("allSessionsError").textContent = e.message;
         }
+      }
+      function updateAdminSessionCounts() {
+        $("allTotalCount").textContent = allSessionsCache.length;
+        $("allActiveCount").textContent = allSessionsCache.filter((x) => ["draft", "in_progress"].includes(x.status)).length;
+        $("allSubmittedCount").textContent = allSessionsCache.filter((x) => ["submitted", "completed"].includes(x.status)).length;
+        $("allReviewCount").textContent = allSessionsCache.filter((x) => x.status === "review" || x.needs_review).length;
       }
       function renderAllSessions() {
         const q = $("trackingSearch").value.trim().toLowerCase(),
@@ -1352,30 +1472,71 @@
           console.warn("Teams could not be loaded:", e.message);
         }
       }
+      function renderEmployees() {
+        const host = $("employeesList");
+        const roleFilter = $("employeeRoleFilter")?.value || "all";
+        const filtered = employeesCache.filter(u => roleFilter === "all" || u.role === roleFilter);
+        host.innerHTML = filtered.length ? filtered.map(u => {
+          const pending = !u.password_setup_completed;
+          return `<article class="border-b borderline py-4" data-employee="${escapeHtml(u.id)}">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0"><div class="font-semibold">${escapeHtml(u.full_name || "Unnamed employee")}</div><div class="muted text-xs break-all">${escapeHtml(u.email || "")}</div>
+                <div class="muted text-xs mt-1">${escapeHtml(u.team_name || "No team")}</div>
+                <div class="flex flex-wrap gap-2 mt-2"><span class="text-xs rounded-full px-2.5 py-1 ${pending ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}">${pending ? "Pending account setup" : "Account created"}</span><span class="text-xs rounded-full px-2.5 py-1 bg-slate-100 text-slate-700">${u.is_active === false ? "Inactive" : "Active"}</span></div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2"><label class="text-xs muted">Role<select class="field mt-1 !w-32" data-edit-role="${escapeHtml(u.id)}"><option value="presales" ${u.role === "presales" ? "selected" : ""}>Presales</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>Admin</option></select></label>
+                <label class="text-xs muted">Team<select class="field mt-1 !w-40" data-edit-team="${escapeHtml(u.id)}"><option value="">No team</option>${teamOptionsHtml(u.team_id)}</select></label>
+                <button class="rounded-lg bg-blue-700 text-white px-3 py-2 text-xs font-semibold" data-save-employee="${escapeHtml(u.id)}">Save changes</button>
+                <button class="rounded-lg border border-red-300 text-red-700 px-3 py-2 text-xs" data-delete-employee="${escapeHtml(u.id)}">Delete</button>
+              </div>
+            </div></article>`;
+        }).join("") : '<p class="muted text-sm">No employees match this access-role filter.</p>';
+      }
+      function teamOptionsHtml(selectedTeamId) {
+        return [...$("employeeTeam").options].filter(o => o.value).map(o => `<option value="${escapeHtml(o.value)}" ${o.value === selectedTeamId ? "selected" : ""}>${escapeHtml(o.textContent)}</option>`).join("");
+      }
       async function loadEmployees() {
         const host = $("employeesList");
-        host.innerHTML = '<p class="muted text-sm">Loading employees…</p>';
+        const cached = readCache("employees");
+        if (cached) { employeesCache = cached; renderEmployees(); }
+        else host.innerHTML = '<div class="loading-panel rounded-xl p-4 muted text-sm flex items-center gap-3"><span class="loading-spinner"></span>Loading employees…</div>';
         try {
           const d = await api("/api/admin/employees", undefined, "GET");
-          const employees = d.employees || [];
-          host.innerHTML = employees.length
-            ? employees
-                .map(
-                  (u) =>
-                    `<div class="flex flex-wrap items-center justify-between gap-2 border-b borderline py-3"><div><div class="font-medium">${escapeHtml(u.full_name || u.fullName || "Unnamed employee")}</div><div class="muted text-xs">${escapeHtml(u.email || "")} · ${escapeHtml(u.team_name || "No team")}</div></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(u.role || "presales")}</span><span class="text-xs ${u.is_active === false ? "text-red-600" : "text-emerald-700"}">${u.is_active === false ? "Inactive" : "Active"}</span></div></div>`,
-                )
-                .join("")
-            : '<p class="muted text-sm">No employees found.</p>';
+          employeesCache = d.employees || [];
+          writeCache("employees", employeesCache);
+          renderEmployees();
         } catch (e) {
-          host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`;
+          if (!cached) host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`;
         }
+      }
+      async function updateEmployee(id) {
+        const role = document.querySelector(`[data-edit-role="${CSS.escape(id)}"]`).value;
+        const teamId = document.querySelector(`[data-edit-team="${CSS.escape(id)}"]`).value || null;
+        const btn = document.querySelector(`[data-save-employee="${CSS.escape(id)}"]`);
+        await withButtonLoading(btn, "Saving…", async () => {
+          await api(`/api/admin/employees/${id}`, { role, teamId }, "PATCH");
+          writeCache("employees", null);
+          await loadEmployees();
+        });
+      }
+      async function deleteEmployee(id) {
+        const employee = employeesCache.find(u => u.id === id);
+        if (!employee || !confirm(`Permanently delete ${employee.email || employee.full_name || "this user"}? This also removes the Supabase Auth account and associated discovery data. This cannot be undone.`)) return;
+        const btn = document.querySelector(`[data-delete-employee="${CSS.escape(id)}"]`);
+        await withButtonLoading(btn, "Deleting…", async () => {
+          await api(`/api/admin/employees/${id}`, {}, "DELETE");
+          employeesCache = employeesCache.filter(u => u.id !== id);
+          writeCache("employees", employeesCache);
+          renderEmployees();
+          writeCache("admin-sessions", null);
+        });
       }
       async function inviteEmployee(e) {
         e.preventDefault();
         const btn = $("inviteEmployeeBtn"),
           status = $("inviteEmployeeStatus");
-        btn.disabled = true;
-        status.textContent = "Sending invitation…";
+        status.textContent = "";
+        await withButtonLoading(btn, "Sending invitation…", async () => {
         try {
           await api("/api/admin/invites", {
             email: $("employeeEmail").value.trim(),
@@ -1388,33 +1549,33 @@
           await loadEmployees();
         } catch (err) {
           status.textContent = err.message;
-        } finally {
-          btn.disabled = false;
         }
+        });
       }
       async function showAuthenticatedApp() {
-        const {
-          data: { session: authSession },
-        } = await supabaseClient.auth.getSession();
-        if (!authSession) {
-          show("loginScreen", true);
-          show("appScreen", false);
-          show("logoutBtn", false);
-          show("userBadge", false);
-          return;
-        }
+        show("authLoading", true);
+        show("loginScreen", false);
+        show("appScreen", false);
         try {
+          const { data: { session: authSession } } = await supabaseClient.auth.getSession();
+          if (!authSession) {
+            show("authLoading", false);
+            show("loginScreen", true);
+            show("logoutBtn", false);
+            show("userBadge", false);
+            return;
+          }
           const me = await api("/api/me", undefined, "GET");
           currentUser = { ...(me.user || me), ...(me.profile || {}) };
           currentRole = me.role || me.profile?.role || currentUser.role;
           if (!["admin", "presales"].includes(currentRole)) throw new Error("Your account does not have an application role. Contact an administrator.");
+          show("authLoading", false);
           show("loginScreen", false);
           show("appScreen", true);
           show("logoutBtn", true);
           show("userBadge", true);
           $("userBadge").textContent = currentUser.full_name || currentUser.email || authSession.user.email;
-          $("headerSubtitle").textContent =
-            currentRole === "admin" ? "Administrator console · Employee and session oversight" : "AI-guided discovery for live client meetings";
+          $("headerSubtitle").textContent = currentRole === "admin" ? "Administrator console · Employee and session oversight" : "AI-guided discovery for live client meetings";
           if (currentRole === "admin") {
             show("adminTabs", true);
             show("employeeTabs", false);
@@ -1427,21 +1588,14 @@
             setTab("discovery");
             await loadTeams();
             await loadMySessions();
-            const active = await api("/api/sessions/active", undefined, "GET");
-            if (active.session) {
-              session = normalizeSession(active.session);
-              detailsFields.forEach((k) => ($(k).value = session[k] || ""));
-              show("setup", false);
-              show("workspace", true);
-              await askNext();
-            } else {
-              session = null;
-              show("setup", true);
-              show("workspace", false);
-              show("review", false);
-            }
+            // Keep the discovery screen clean on sign-in; resuming is an explicit Session Manager action.
+            session = null;
+            show("setup", true);
+            show("workspace", false);
+            show("review", false);
           }
         } catch (e) {
+          show("authLoading", false);
           show("loginScreen", true);
           show("appScreen", false);
           $("loginError").textContent = e.message;
@@ -1450,8 +1604,8 @@
       $("loginForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         const btn = $("loginBtn");
-        btn.disabled = true;
-        $("loginError").textContent = "Signing in…";
+        $("loginError").textContent = "";
+        await withButtonLoading(btn, "Signing in…", async () => {
         try {
           const { error } = await supabaseClient.auth.signInWithPassword({
             email: $("loginEmail").value.trim(),
@@ -1462,13 +1616,13 @@
           await showAuthenticatedApp();
         } catch (err) {
           $("loginError").textContent = err.message || "Unable to sign in.";
-        } finally {
-          btn.disabled = false;
         }
+        });
       });
       $("logoutBtn").onclick = async () => {
         await supabaseClient.auth.signOut();
         session = null;
+        clearAppCache();
         currentUser = null;
         currentRole = null;
         show("appScreen", false);
@@ -1483,6 +1637,7 @@
           if (password.length < 8) throw new Error("Use at least 8 characters.");
           const { error } = await supabaseClient.auth.updateUser({ password });
           if (error) throw error;
+          await api("/api/me/password-setup", { completed: true }, "PATCH");
           show("invitePasswordPanel", false);
           $("loginForm").classList.remove("hidden");
           await showAuthenticatedApp();
@@ -1504,9 +1659,18 @@
       $("sessionDetailPanel").addEventListener("click", (e) => {
         if (e.target.id === "sessionDetailPanel") show("sessionDetailPanel", false);
       });
-      $("refreshMySessionsBtn").onclick = loadMySessions;
-      $("refreshAllSessionsBtn").onclick = loadAllSessions;
-      $("refreshEmployeesBtn").onclick = loadEmployees;
+      $("refreshMySessionsBtn").onclick = () => withButtonLoading($("refreshMySessionsBtn"), "Refreshing…", loadMySessions);
+      $("refreshAllSessionsBtn").onclick = () => withButtonLoading($("refreshAllSessionsBtn"), "Refreshing…", loadAllSessions);
+      $("refreshEmployeesBtn").onclick = () => withButtonLoading($("refreshEmployeesBtn"), "Refreshing…", loadEmployees);
+      $("employeeRoleFilter").addEventListener("change", renderEmployees);
+      $("employeesList").addEventListener("click", async (e) => {
+        const save = e.target.closest("[data-save-employee]");
+        const del = e.target.closest("[data-delete-employee]");
+        try {
+          if (save) await updateEmployee(save.dataset.saveEmployee);
+          if (del) await deleteEmployee(del.dataset.deleteEmployee);
+        } catch (err) { alert("Employee update failed: " + err.message); }
+      });
       $("inviteEmployeeForm").addEventListener("submit", inviteEmployee);
       $("sessionVisibility").addEventListener("change", () => {
         show("sessionTeamWrap", $("sessionVisibility").value === "team");
@@ -1517,8 +1681,12 @@
       document.addEventListener("click", (e) => {
         const resume = e.target.closest("[data-resume-session]");
         const view = e.target.closest("[data-view-session]");
-        if (resume) openSavedSession(resume.dataset.resumeSession);
-        if (view) openSessionDetail(view.dataset.viewSession);
+        if (resume) {
+          withButtonLoading(resume, "Opening…", () => openSavedSession(resume.dataset.resumeSession));
+        }
+        if (view) {
+          withButtonLoading(view, "Loading…", () => openSessionDetail(view.dataset.viewSession));
+        }
       });
       async function openSessionDetail(id) {
         try {
@@ -1553,6 +1721,7 @@
           if (!config.checkpoints) throw new Error("Config unavailable");
           const inviteLink = location.hash.includes("type=invite");
           if (inviteLink) {
+            show("authLoading", false);
             show("loginScreen", true);
             show("appScreen", false);
             show("invitePasswordPanel", true);
@@ -1574,6 +1743,8 @@
             }
           });
         } catch (e) {
+          show("authLoading", false);
+          show("loginScreen", true);
           $("loginError").textContent = "Unable to initialize the application: " + e.message;
         }
       })();
