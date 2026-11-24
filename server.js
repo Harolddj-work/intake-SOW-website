@@ -309,10 +309,9 @@ app.post('/api/complete-invite', requireAuth, async (req, res) => {
     if (profileLookupError) throw profileLookupError;
 
     if (profile.password_setup_completed) {
-      return res.json({
-        success: true,
-        alreadyCompleted: true,
-        message: 'Password setup has already been completed.'
+      return res.status(409).json({
+        success: false,
+        error: 'This account has already completed password setup.'
       });
     }
 
