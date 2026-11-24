@@ -157,10 +157,29 @@ const SESSION_FIELDS = [
   'follow_up_counts', 'status', 'visibility', 'team_id'
 ];
 
+
 function dbError(error, res, message = 'Database operation failed.') {
-  console.error(message, error);
-  return res.status(500).json({ success: false, error: message });
+  console.error('Supabase database error:', {
+    code: error?.code,
+    message: error?.message,
+    details: error?.details,
+    hint: error?.hint
+  });
+
+  const status =
+    error?.code === '23505' ? 409 :
+      error?.code === '23503' ? 400 :
+        error?.code === '23502' ? 400 :
+          error?.code === '42501' ? 403 :
+            500;
+
+  return res.status(status).json({
+    success: false,
+    error: message,
+    code: error?.code || 'DATABASE_ERROR'
+  });
 }
+
 
 async function getSessionRecord(id) {
   const { data, error } = await supabaseAdmin

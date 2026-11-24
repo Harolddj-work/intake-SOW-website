@@ -420,7 +420,20 @@
     function detailsFromForm() { return { ...Object.fromEntries(detailsFields.map(id => [id, $(id).value.trim()])), visibility: $('sessionVisibility').value, team_id: $('sessionVisibility').value === 'team' ? $('sessionTeam').value : null }; }
     function show(el, on = true) { $(el).classList.toggle('hidden', !on); }
     function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-    function normalizeAnswer(a = {}) { return { ...a, checkpointId: a.checkpointId ?? a.checkpoint_id, coveredItemIds: a.coveredItemIds ?? a.covered_item_ids ?? [], handledItemIds: a.handledItemIds ?? a.handled_item_ids ?? [], followUpQuestion: a.followUpQuestion ?? a.follow_up_question, followUpAnswer: a.followUpAnswer ?? a.follow_up_answer, mainPoint: a.mainPoint ?? a.main_point, needsReview: a.needsReview ?? a.needs_review ?? false }; }
+      function normalizeAnswer(a = {}) {
+        return {
+          ...a,
+          checkpointId: a.checkpointId ?? a.checkpoint_id,
+          coveredItemIds: a.coveredItemIds ?? a.covered_item_ids ?? [],
+          handledItemIds: a.handledItemIds ?? a.handled_item_ids ?? [],
+          followUpQuestion: a.followUpQuestion ?? a.follow_up_question,
+          followUpAnswer: a.followUpAnswer ?? a.follow_up_answer,
+          followUpMainPoint: a.followUpMainPoint ?? a.follow_up_main_point,
+          mainPoint: a.mainPoint ?? a.main_point,
+          needsReview: a.needsReview ?? a.needs_review ?? false
+        };
+      }
+
     function normalizeSession(s = {}) { return { ...s, id: s.id ?? s.session_id, clientName: s.clientName ?? s.client_name, companyName: s.companyName ?? s.company_name, contactName: s.contactName ?? s.contact_name, contactEmail: s.contactEmail ?? s.contact_email, projectName: s.projectName ?? s.project_name, projectType: s.projectType ?? s.project_type, projectDescription: s.projectDescription ?? s.project_description, checkpointIndex: s.checkpointIndex ?? s.checkpoint_index ?? 0, maxCheckpointIndex: s.maxCheckpointIndex ?? s.max_checkpoint_index ?? 0, checkpointNotes: s.checkpointNotes ?? s.checkpoint_notes ?? {}, followUpCounts: s.followUpCounts ?? s.follow_up_counts ?? {}, team_id: s.team_id ?? s.teamId, answers: (s.answers || []).map(normalizeAnswer) }; }
     function checkpoint() { return config.checkpoints[session.checkpointIndex]; }
     function history() { return (session.answers || []).filter(a => a.checkpointId === checkpoint().id); }
