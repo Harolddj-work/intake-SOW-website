@@ -1764,7 +1764,7 @@
 
             isInviteFlow = false;
             clearAppCache();
-            window.history.replaceState(null, "", window.location.pathname + window.location.search);
+            window.location.hash = "";
             show("authLoading", false);
             show("appScreen", false);
             show("invitePasswordPanel", false);
