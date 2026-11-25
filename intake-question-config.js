@@ -5,7 +5,7 @@ const checkpoints = [
     { id: 'contact_person', label: 'Contact person', guidance: 'Name and role of the primary client contact.' },
     { id: 'contact_email', label: 'Contact email', guidance: 'A valid business email for the primary contact.' },
     { id: 'company', label: 'Company', guidance: 'Company or organization name and relevant business context.' },
-    { id: 'stakeholders', label: 'Key stakeholders', guidance: 'Decision makers, business owners, users, approvers, and technical contacts.' }
+    { id: 'stakeholders', label: 'Key stakeholders and project contacts', guidance: 'Capture each additional stakeholder and person managing or coordinating the project individually: full name, role/title, responsibility in the project, and a valid email address. Include decision makers, business owners, users, approvers, technical contacts, project manager and day-to-day coordinator. If an email is not yet known, explicitly mark it as pending and identify who will provide it.' }
   ]},
   { id: 'objectives', title: 'Business Objectives', items: [
     { id: 'problem', label: 'Problem or opportunity', guidance: 'The business problem, opportunity, and why action is needed.' },
@@ -35,8 +35,8 @@ const checkpoints = [
     { id: 'availability', label: 'Availability and performance', guidance: 'Uptime, response times, recovery, service levels and reliability expectations.' }
   ]},
   { id: 'delivery', title: 'Timeline, Budget & Deliverables', items: [
-    { id: 'start_date', label: 'Target start date', guidance: 'Desired project start date and any preparation dependencies.' },
-    { id: 'go_live', label: 'Go-live target', guidance: 'Target launch date, milestones and deadline flexibility.' },
+    { id: 'start_date', label: 'Starting interview date', guidance: 'Capture the exact calendar date of the starting interview (day, month and year), not only a month or approximate timeframe. Do not accept a date in the past. Also capture preparation dependencies.' },
+    { id: 'go_live', label: 'Go-live target', guidance: 'Capture the exact calendar go-live date (day, month and year), key milestones and deadline flexibility. The expected go-live is about 2 months after the starting interview, normally within 6–10 weeks.' },
     { id: 'budget', label: 'Budget', guidance: 'Budget range, funding status, cost constraints or approval status.' },
     { id: 'deliverables', label: 'Deliverables', guidance: 'Expected solution components, configuration, integrations, training, documentation and handover.' },
     { id: 'acceptance', label: 'Acceptance criteria', guidance: 'Testing, sign-off owner, measurable acceptance conditions and exclusions.' }

@@ -131,7 +131,7 @@ async function validateSession({ session }) {
     const response = await client.responses.create({
       model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
       instructions: 'You are performing the final presales discovery quality audit. Compare all answers for contradictions, identify important scoping details that are still missing, and flag risks/dependencies/approval ownership gaps. Do not invent facts. Do not call an explicitly delegated choice missing; record it as a recommendation/delegation. A client-not-known answer is an unresolved item, not a contradiction. Return concise actionable issues. Only flag genuinely material conflicts or gaps.',
-      input: JSON.stringify({ project: { projectName: session.projectName, clientName: session.clientName, companyName: session.companyName, projectType: session.projectType, projectDescription: session.projectDescription }, checkpoints, answers: compactAnswers, checkpointNotes: session.checkpointNotes || {} }),
+      input: JSON.stringify({ project: { projectName: session.projectName, companyName: session.companyName, contactName: session.contactName, contactEmail: session.contactEmail, projectType: session.projectType, projectDescription: session.projectDescription }, checkpoints, answers: compactAnswers, checkpointNotes: session.checkpointNotes || {} }),
       text: { format: { type: 'json_schema', name: 'final_discovery_audit', strict: true, schema: {
         type: 'object', properties: {
           contradictions: { type: 'array', items: { type: 'string' } },

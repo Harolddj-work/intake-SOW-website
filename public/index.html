@@ -151,6 +151,53 @@
       body.dark .shadow-sm, body.dark .shadow { box-shadow: 0 8px 24px rgba(0,0,0,.22); }
       body.dark option { background: #172338; color: #e5edf8; }
       body.dark .loading-panel { background: #172d4b; border-color: #31547b; color: #dbeafe; }
+
+
+      /* Consistent workspace typography, spacing, and status feedback */
+      body {
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.5;
+        letter-spacing: -0.01em;
+      }
+      .panel {
+        border-radius: 1rem;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+      }
+      button {
+        transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+      }
+      button:not(:disabled):active { transform: translateY(1px); }
+      input:not([type="checkbox"]), textarea, select {
+        min-height: 2.75rem;
+        border-radius: .65rem;
+        line-height: 1.45;
+      }
+      textarea { resize: vertical; }
+      #checkpointTitle { letter-spacing: -0.025em; }
+      #checkpointPills button {
+        min-height: 2rem;
+        border: 1px solid rgba(148, 163, 184, .28);
+        font-weight: 600;
+      }
+      #progressBar { min-width: 0; }
+      #answerError, #setupError { font-weight: 500; }
+      #validationResults { background: #fff; }
+      body.dark .validationResults,
+      body.dark #validationResults { background: #172338; }
+      body.dark .panel { box-shadow: 0 12px 28px rgba(0, 0, 0, .18); }
+      body.dark #validationResults { background: #172338; }
+
+      /* Consistent form controls and accessible interaction states */
+      .theme-toggle { flex: 0 0 auto; line-height: 1; }
+      button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+        outline: 3px solid rgba(14, 165, 233, .45);
+        outline-offset: 2px;
+      }
+      #validationResults { line-height: 1.55; }
+      #validationResults:empty { display: none; }
+      #submitStatus { line-height: 1.5; }
+      body.dark .bg-red-50 { background: #3b1720 !important; color: #fecaca !important; }
+      body.dark .border-red-300 { border-color: #7f1d1d !important; }
     </style>
   </head>
 
@@ -164,7 +211,7 @@
         </div>
         <div class="flex items-center gap-2">
           <span id="userBadge" class="hidden text-sm text-slate-200"></span
-          ><button id="themeBtn" class="border border-slate-500 rounded-lg px-3 py-2 text-sm">Toggle dark mode</button
+          ><button id="themeBtn" type="button" class="theme-toggle border border-slate-500 rounded-lg w-10 h-10 inline-flex items-center justify-center text-xl hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300" title="Switch to dark mode" aria-label="Switch to dark mode"><span id="themeIcon" aria-hidden="true">☾</span></button
           ><button id="logoutBtn" class="hidden border border-slate-500 rounded-lg px-3 py-2 text-sm">Sign out</button>
         </div>
       </div>
@@ -238,14 +285,6 @@
             Enter the fixed meeting details. All project questions will be generated dynamically from the project context and your answers.
           </p>
           <div class="grid sm:grid-cols-2 gap-4">
-            <label class="text-sm font-medium"
-              >Client name *<input
-                id="clientName"
-                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
-                maxlength="150"
-                required
-                placeholder="Client or project sponsor name"
-            /></label>
             <label class="text-sm font-medium"
               >Company name *<input
                 id="companyName"
@@ -329,8 +368,8 @@
                 <div class="text-xs muted">Six checkpoints total</div>
               </div>
             </div>
-            <div class="h-2 rounded-full bg-slate-200 mt-4 overflow-hidden">
-              <div id="progressBar" class="h-full bg-blue-600 rounded-full" style="width: 0%"></div>
+            <div class="h-2 rounded-full bg-slate-200 mt-4 overflow-hidden" role="progressbar" aria-label="Discovery checkpoint progress" aria-valuemin="0" aria-valuemax="6" aria-valuenow="1">
+              <div id="progressBar" class="h-full bg-blue-600 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
             <div id="checkpointPills" class="flex flex-wrap gap-2 mt-4"></div>
           </div>
@@ -574,10 +613,12 @@
       function clearAppCache() {
         try { Object.keys(sessionStorage).filter(k => k.startsWith("sow-intake:")).forEach(k => sessionStorage.removeItem(k)); } catch (_) {}
       }
-      const detailsFields = ["clientName", "companyName", "contactName", "contactEmail", "projectName", "projectType", "projectDescription"];
+      const detailsFields = ["companyName", "contactName", "contactEmail", "projectName", "projectType", "projectDescription"];
       function detailsFromForm() {
+        const details = Object.fromEntries(detailsFields.map((id) => [id, $(id).value.trim()]));
+        details.clientName = details.contactName; // Legacy alias; no separate Client name input.
         return {
-          ...Object.fromEntries(detailsFields.map((id) => [id, $(id).value.trim()])),
+          ...details,
           visibility: $("sessionVisibility").value,
           team_id: $("sessionVisibility").value === "team" ? $("sessionTeam").value : null,
         };
@@ -616,7 +657,8 @@
         return {
           ...s,
           id: s.id ?? s.session_id,
-          clientName: s.clientName ?? s.client_name,
+          // Legacy compatibility: the old Client name field duplicated the primary contact.
+          clientName: s.contactName ?? s.contact_name ?? s.clientName ?? s.client_name,
           companyName: s.companyName ?? s.company_name,
           contactName: s.contactName ?? s.contact_name,
           contactEmail: s.contactEmail ?? s.contact_email,
@@ -711,7 +753,8 @@
         saveTimer = setTimeout(async () => {
           try {
             const metadata = {
-              client_name: session.clientName,
+              // Keep the existing database column populated without asking users twice.
+              client_name: session.contactName || session.clientName,
               company_name: session.companyName,
               contact_name: session.contactName,
               contact_email: session.contactEmail,
@@ -785,7 +828,8 @@
         $("checkpointCount").textContent = `Checkpoint ${session.checkpointIndex + 1} of 6`;
         $("checkpointHint").textContent = `${cp.items.length} information areas · AI-generated questions`;
         show("backBtn", session.checkpointIndex > 0);
-        $("progressBar").style.width = `${(session.checkpointIndex / 6) * 100}%`;
+        $("progressBar").style.width = `${((session.checkpointIndex + 1) / 6) * 100}%`;
+        $("progressBar").parentElement.setAttribute("aria-valuenow", String(session.checkpointIndex + 1));
         renderPills();
       }
       async function publicApi(url, body) {
@@ -897,9 +941,9 @@
       async function startSession(restore = false) {
         if (!restore) {
           const d = detailsFromForm();
-          for (const k of ["clientName", "companyName", "contactName", "contactEmail", "projectType"])
+          for (const k of ["companyName", "contactName", "contactEmail", "projectType"])
             if (!d[k]) {
-              $("setupError").textContent = "Please complete all five session details.";
+              $("setupError").textContent = "Please complete the company, primary contact name, contact email, and project type.";
               return;
             }
           if (!$("contactEmail").checkValidity()) {
@@ -949,6 +993,7 @@
           if (!session.id) throw new Error("The session API did not return a session ID.");
         } else {
           detailsFields.forEach((k) => ($(k).value = session[k] || ""));
+          session.clientName = session.contactName || session.clientName || "";
           $("sessionVisibility").value = session.visibility || "private";
           $("sessionTeam").value = session.team_id || "";
         }
@@ -1162,7 +1207,7 @@
         host.innerHTML = "";
         const summary = document.createElement("div");
         summary.className = "rounded-xl soft p-4 text-sm";
-        summary.innerHTML = `<b>${escapeHtml(session.projectName || `${session.companyName} - ${session.projectType}`)}</b><br>${escapeHtml(session.clientName)} · ${escapeHtml(session.companyName)}<br>${escapeHtml(session.contactName)} · ${escapeHtml(session.contactEmail)}<br>Project type: ${escapeHtml(session.projectType)}`;
+        summary.innerHTML = `<b>${escapeHtml(session.projectName || `${session.companyName} - ${session.projectType}`)}</b><br>${escapeHtml(session.companyName)}<br>${escapeHtml(session.contactName)} · ${escapeHtml(session.contactEmail)}<br>Project type: ${escapeHtml(session.projectType)}`;
         host.appendChild(summary);
         config.checkpoints.forEach((cp) => {
           const section = document.createElement("section");
@@ -1205,12 +1250,18 @@
         $("validationResults").textContent = "Checking required information, unresolved items and possible contradictions…";
         try {
           const result = await publicApi("/api/validate-intake", session);
-          session.validationPassed = true;
           session.validationReport = result;
+          const blocking = result.blockingIssues || [];
+          session.validationPassed = blocking.length === 0 && result.canSubmit !== false;
           save();
           const warnings = result.warnings || [];
           const missing = result.missingRequired || [];
-          let html = '<div class="font-bold text-emerald-700">Validation review completed. You may submit the ticket even if warnings remain.</div>';
+          let html = blocking.length
+            ? '<div class="font-bold text-red-600">Submission is on hold. Please correct the date issues below and run the check again.</div>'
+            : '<div class="font-bold text-emerald-700">Validation review completed. You may submit the ticket even if non-blocking warnings remain.</div>';
+          if (blocking.length)
+            html += '<div class="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 text-red-800"><b>Required corrections:</b><ul class="list-disc pl-5 mt-1">' +
+              blocking.map(x => `<li>${escapeHtml(x)}</li>`).join("") + '</ul></div>';
           if (missing.length)
             html +=
               '<div class="mt-3"><b>Important details still missing or unverified:</b><ul class="list-disc pl-5 mt-1">' +
@@ -1224,7 +1275,7 @@
           if (!warnings.length && !missing.length) html += '<p class="mt-2">No outstanding warnings were identified.</p>';
           html += '<p class="mt-3 text-sm font-semibold">Submitting will include these warnings in the Zendesk ticket for follow-up.</p>';
           $("validationResults").innerHTML = html;
-          $("submitTicketBtn").disabled = false;
+          $("submitTicketBtn").disabled = !session.validationPassed;
         } catch (e) {
           session.validationPassed = false;
           $("submitTicketBtn").disabled = true;
@@ -1236,11 +1287,24 @@
           btn.classList.remove("inline-flex", "items-center", "gap-2");
         }
       }
+      function updateThemeButton() {
+        const isDark = document.body.classList.contains("dark");
+        const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+        $("themeIcon").textContent = isDark ? "☀" : "☾";
+        $("themeBtn").setAttribute("aria-label", label);
+        $("themeBtn").title = label;
+      }
       $("themeBtn").onclick = () => {
         document.body.classList.toggle("dark");
-        localStorage.setItem("sowTheme", document.body.classList.contains("dark") ? "dark" : "light");
+        try {
+          localStorage.setItem("sowTheme", document.body.classList.contains("dark") ? "dark" : "light");
+        } catch (_) {}
+        updateThemeButton();
       };
-      if (localStorage.getItem("sowTheme") === "dark") document.body.classList.add("dark");
+      try {
+        if (localStorage.getItem("sowTheme") === "dark") document.body.classList.add("dark");
+      } catch (_) {}
+      updateThemeButton();
       $("startBtn").onclick = () => withButtonLoading($("startBtn"), "Starting discovery…", () => startSession(false));
       $("sendBtn").onclick = () => (pending?.isFollowUp ? submitFollowUp() : submitAnswer());
       $("unknownBtn").onclick = () => {
@@ -1381,7 +1445,7 @@
         const owner = item.owner?.full_name || item.owner_name || item.owner_email || item.profiles?.full_name || "Employee";
         const status = item.status || "in_progress";
         const progress = Number(item.checkpoint_index ?? item.checkpointIndex ?? 0);
-        return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · ${escapeHtml(item.client_name || item.clientName || "Client not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
+        return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · Primary contact: ${escapeHtml(item.contact_name || item.contactName || "Not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
       }
       function renderMySessions() {
         const host = $("mySessionsList");
@@ -1462,6 +1526,7 @@
             session = normalizeSession(claim.session);
           }
           detailsFields.forEach((k) => ($(k).value = session[k] || ""));
+          session.clientName = session.contactName || session.clientName || "";
           show("setup", false);
           show("workspace", true);
           show("review", false);

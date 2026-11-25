@@ -360,7 +360,6 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
     const value = (snake, camel) => body[snake] ?? body[camel];
 
     const requiredFields = [
-      ['client_name', 'clientName'],
       ['company_name', 'companyName'],
       ['contact_name', 'contactName'],
       ['contact_email', 'contactEmail'],
@@ -408,7 +407,8 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
 
     const insert = {
       owner_id: req.user.id,
-      client_name: safeText(value('client_name', 'clientName'), 180),
+      // Keep the legacy database column populated from the single primary contact field.
+      client_name: safeText(value('contact_name', 'contactName') || value('client_name', 'clientName'), 180),
       company_name: safeText(value('company_name', 'companyName'), 180),
       contact_name: safeText(value('contact_name', 'contactName'), 120),
       contact_email: safeText(value('contact_email', 'contactEmail'), 254),
@@ -1160,6 +1160,126 @@ function safeText(value, max = 5000) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+
+// Date feasibility rules for the Timeline checkpoint.
+// Dates are read from the saved client answers, not inferred by the AI.
+function extractCalendarDates(value) {
+  const text = safeText(value, 5000);
+  const found = [];
+  const add = (index, year, month, day) => {
+    const y = Number(year), m = Number(month), d = Number(day);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    if (date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d) {
+      found.push({ index, value: date.toISOString().slice(0, 10) });
+    }
+  };
+
+  for (const match of text.matchAll(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/g)) {
+    add(match.index, match[1], match[2], match[3]);
+  }
+
+  const monthNames = {
+    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
+    apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
+    aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10,
+    october: 10, nov: 11, november: 11, dec: 12, december: 12
+  };
+  const monthPattern = 'January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec';
+  const monthFirst = new RegExp(`\\b(${monthPattern})\\s+(\\d{1,2})(?:st|nd|rd|th)?[,]?\\s+(20\\d{2})\\b`, 'gi');
+  for (const match of text.matchAll(monthFirst)) {
+    add(match.index, match[3], monthNames[match[1].toLowerCase()], match[2]);
+  }
+  const dayFirst = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${monthPattern})[,]?\\s+(20\\d{2})\\b`, 'gi');
+  for (const match of text.matchAll(dayFirst)) {
+    add(match.index, match[3], monthNames[match[2].toLowerCase()], match[1]);
+  }
+
+  // Numeric dates are interpreted as DD/MM/YYYY (the standard used in the app's
+  // primary operating locale); ISO YYYY-MM-DD is preferred when sharing dates.
+  for (const match of text.matchAll(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/g)) {
+    add(match.index, match[3], match[2], match[1]);
+  }
+
+  return [...new Map(found.sort((a, b) => a.index - b.index).map(x => [x.value, x])).values()]
+    .sort((a, b) => a.index - b.index);
+}
+
+function appTodayDate() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.APP_TIME_ZONE || 'Asia/Manila',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date());
+  const part = type => parts.find(x => x.type === type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+function addDaysToDate(dateValue, days) {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function displayCalendarDate(dateValue) {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC'
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+function timelineFeasibilityIssues(answers) {
+  const recordsFor = id => (Array.isArray(answers) ? answers : []).filter(a =>
+    Array.isArray(a.coveredItemIds) && a.coveredItemIds.includes(id)
+  );
+  const datesFor = id => {
+    const records = recordsFor(id);
+    // Use the latest captured answer so a correction supersedes an older date.
+    const latest = records[records.length - 1];
+    if (!latest) return [];
+    const text = [
+      safeText(latest.answer, 5000),
+      safeText(latest.followUpAnswer || latest.follow_up_answer, 3000),
+      safeText(latest.mainPoint || latest.main_point || latest.evaluation?.mainPoint, 1500),
+      safeText(latest.followUpMainPoint || latest.follow_up_main_point, 1500)
+    ].join(' ');
+    return extractCalendarDates(text);
+  };
+
+  const startDates = datesFor('start_date');
+  const goLiveDates = datesFor('go_live');
+  const startDate = startDates[0]?.value || '';
+  const goLiveDate = goLiveDates[goLiveDates.length - 1]?.value || '';
+  const issues = [];
+
+  if (!startDate) {
+    issues.push('Please confirm the starting interview date as an exact calendar date (for example, 2027-03-15). Month-only answers are not precise enough for feasibility validation.');
+    return issues;
+  }
+
+  const today = appTodayDate();
+  if (startDate < today) {
+    issues.push(`The starting interview date (${displayCalendarDate(startDate)}) is in the past. Please choose today or a future date.`);
+    return issues;
+  }
+
+  if (!goLiveDate) {
+    issues.push('Please confirm the go-live target as an exact calendar date (for example, 2027-05-15) so the project timeline can be checked.');
+    return issues;
+  }
+
+  if (goLiveDate < startDate) {
+    issues.push(`Go-live cannot be earlier than the starting interview date. The interview is ${displayCalendarDate(startDate)}, but the current go-live target is ${displayCalendarDate(goLiveDate)}. Please choose a later date.`);
+    return issues;
+  }
+
+  const earliestExpected = addDaysToDate(startDate, 42);
+  const latestExpected = addDaysToDate(startDate, 70);
+  if (goLiveDate < earliestExpected || goLiveDate > latestExpected) {
+    const direction = goLiveDate < earliestExpected ? 'earlier' : 'later';
+    issues.push(`Go-live is ${direction} than the expected timeframe. It is usually about 2 months after the starting interview. Please choose a date around ${displayCalendarDate(earliestExpected)} to ${displayCalendarDate(latestExpected)} (6–10 weeks after ${displayCalendarDate(startDate)}). Current target: ${displayCalendarDate(goLiveDate)}.`);
+  }
+
+  return issues;
+}
+
 function compactFallback(value, max = 500) {
   return safeText(value, max)
     .replace(/^(Ryan|the client)\s+(says|wants|reports|states|requires)\s+/i, '')
@@ -1245,7 +1365,7 @@ async function generateConciseTicketSummary(data) {
 Use the ORIGINAL client answers as the source of truth; captured main points are secondary hints and may be incomplete.
 Write only the main points. Do not write "Ryan says", "the client wants", "the client reports", or repeat the questions.
 Be concise and factual: short phrases or bullets, not paragraphs.
-Preserve all concrete facts: exact month/year dates, quantities, named platforms, communication channels, operating hours, targets, constraints, and caveats.
+Preserve all concrete facts: exact calendar dates, quantities, named platforms, communication channels, operating hours, targets, constraints, and caveats. For key stakeholders and project contacts, preserve each person's name, role, responsibility, and email address; clearly mark emails that are still pending.
 IMPORTANT RECONCILIATION RULE: If an earlier answer names several systems and a later follow-up clarifies the role of one system, keep all the named systems unless the client explicitly says a system is no longer in scope. Example: "CRM, Five9, and Confluence" followed by "Microsoft CRM is the ticketing platform" should become "Microsoft CRM (ticketing), Five9 (telephony), Confluence (knowledge base)"—do not drop Five9 or Confluence.
 For dates, output only the date value, e.g. "January 2027" and "April 2027"; never repeat the same combined sentence under two date fields.
 Do not invent missing details or turn suggestions into confirmed requirements. Put unknown, delegated, accepted-as-is, or needs-review items in internalFollowUps, with the correct distinction.
@@ -1759,7 +1879,7 @@ app.post('/api/validate-intake', async (req, res) => {
       ])
     ];
 
-    const blockingIssues = [];
+    const blockingIssues = timelineFeasibilityIssues(data.answers);
 
     const warnings = [
       ...missingRequired.map(x =>
@@ -1768,6 +1888,7 @@ app.post('/api/validate-intake', async (req, res) => {
       ...unresolved.map(x =>
         `Unresolved checklist item: ${x.label}`
       ),
+      ...blockingIssues,
       ...(audit.warnings || []),
       ...(audit.missingCriticalDetails || []).map(x =>
         `AI audit follow-up: ${x}`
@@ -1780,7 +1901,7 @@ app.post('/api/validate-intake', async (req, res) => {
     // Discovery warnings are recorded for the delivery team, but do not block ticket submission.
     res.json({
       success: true,
-      canSubmit: true,
+      canSubmit: blockingIssues.length === 0,
       blockingIssues,
       missingRequired,
       unresolvedOptional: unresolved.filter(x => !x.required),
@@ -1833,9 +1954,15 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
     }
 
     const data = await sessionWithAnswers(sessionId);
+    const timelineIssues = timelineFeasibilityIssues(data?.answers || []);
+    if (timelineIssues.length) {
+      return res.status(400).json({
+        success: false,
+        error: `Please correct the project timeline before submitting: ${timelineIssues.join(' ')}`
+      });
+    }
 
     Object.assign(data, {
-      clientName: data.client_name,
       companyName: data.company_name,
       contactName: data.contact_name,
       contactEmail: data.contact_email,
@@ -1852,7 +1979,6 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
     }
 
     const required = [
-      'clientName',
       'companyName',
       'contactName',
       'contactEmail',
