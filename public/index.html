@@ -1,425 +1,603 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SOW Discovery Intake</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        color-scheme: light;
+      }
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SOW Discovery Intake</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    :root {
-      color-scheme: light
-    }
+      body.dark {
+        background: #0f172a;
+        color: #e2e8f0;
+        color-scheme: dark;
+      }
 
-    body.dark {
-      background: #0f172a;
-      color: #e2e8f0;
-      color-scheme: dark
-    }
+      .panel {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+      }
 
-    .panel {
-      background: #fff;
-      border: 1px solid #e2e8f0
-    }
+      body.dark .panel {
+        background: #1e293b;
+        border-color: #334155;
+      }
 
-    body.dark .panel {
-      background: #1e293b;
-      border-color: #334155
-    }
+      body.dark .muted {
+        color: #cbd5e1;
+      }
 
-    body.dark .muted {
-      color: #cbd5e1
-    }
+      body.dark input,
+      body.dark textarea {
+        background: #0f172a;
+        border-color: #475569;
+        color: #f8fafc;
+      }
 
-    body.dark input,
-    body.dark textarea {
-      background: #0f172a;
-      border-color: #475569;
-      color: #f8fafc
-    }
+      body.dark .soft {
+        background: #334155;
+        color: #e2e8f0;
+      }
 
-    body.dark .soft {
-      background: #334155;
-      color: #e2e8f0
-    }
+      body.dark .borderline {
+        border-color: #475569;
+      }
 
-    body.dark .borderline {
-      border-color: #475569
-    }
+      .chat {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
 
-    .chat {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere
-    }
+      .suggestion-chip {
+        background: #dbeafe !important;
+        color: #1e3a8a !important;
+        border: 2px solid #3b82f6 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 2px 5px rgba(30, 64, 175, 0.16);
+        white-space: normal;
+        text-align: left;
+      }
 
-    .suggestion-chip {
-      background: #dbeafe !important;
-      color: #1e3a8a !important;
-      border: 2px solid #3b82f6 !important;
-      font-weight: 700 !important;
-      box-shadow: 0 2px 5px rgba(30, 64, 175, .16);
-      white-space: normal;
-      text-align: left
-    }
+      .suggestion-chip:hover {
+        background: #bfdbfe !important;
+      }
 
-    .suggestion-chip:hover {
-      background: #bfdbfe !important
-    }
+      body.dark .suggestion-chip {
+        background: #1e3a8a !important;
+        color: #eff6ff !important;
+        border-color: #60a5fa !important;
+      }
 
-    body.dark .suggestion-chip {
-      background: #1e3a8a !important;
-      color: #eff6ff !important;
-      border-color: #60a5fa !important
-    }
+      body.dark .suggestion-chip:hover {
+        background: #1d4ed8 !important;
+      }
 
-    body.dark .suggestion-chip:hover {
-      background: #1d4ed8 !important
-    }
+      button:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+      }
 
-    button:disabled {
-      opacity: .55;
-      cursor: not-allowed
-    }
+      .loading-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 9999px;
+        animation: loading-spin 0.7s linear infinite;
+        flex: 0 0 auto;
+        vertical-align: -0.15em;
+      }
 
-    .tab-active {
-      background: #1d4ed8;
-      color: #fff;
-      border-color: #1d4ed8
-    }
+      .loading-spinner-sm {
+        width: 0.85rem;
+        height: 0.85rem;
+        border-width: 2px;
+      }
 
-    body.dark .tab-active {
-      background: #2563eb;
-      color: #fff
-    }
+      @keyframes loading-spin {
+        to { transform: rotate(360deg); }
+      }
 
-    .field {
-      width: 100%;
-      border: 1px solid #cbd5e1;
-      border-radius: .6rem;
-      padding: .7rem .8rem;
-      background: #fff
-    }
+      @media (prefers-reduced-motion: reduce) {
+        .loading-spinner { animation-duration: 1.8s; }
+      }
 
-    body.dark .field {
-      background: #0f172a;
-      border-color: #475569;
-      color: #f8fafc
-    }
-  </style>
-</head>
+      .tab-active {
+        background: #1d4ed8;
+        color: #fff;
+        border-color: #1d4ed8;
+      }
 
-<body class="min-h-screen bg-slate-50 text-slate-800">
-  <header class="bg-slate-900 text-white shadow">
-    <div class="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
-      <div>
-        <div class="text-xs uppercase tracking-widest text-cyan-300">Presales workspace</div>
-        <h1 class="text-xl sm:text-2xl font-bold">SOW Discovery Intake</h1>
-        <p id="headerSubtitle" class="text-sm text-slate-300">AI-guided discovery and session management</p>
-      </div>
-      <div class="flex items-center gap-2"><span id="userBadge" class="hidden text-sm text-slate-200"></span><button
-          id="themeBtn" class="border border-slate-500 rounded-lg px-3 py-2 text-sm">Toggle dark mode</button><button
-          id="logoutBtn" class="hidden border border-slate-500 rounded-lg px-3 py-2 text-sm">Sign out</button></div>
-    </div>
-  </header>
-  <section id="loginScreen" class="max-w-md mx-auto px-4 py-12">
-    <div class="panel rounded-2xl p-6 sm:p-8 shadow-sm">
-      <div class="text-xs uppercase tracking-widest text-blue-700 font-semibold">Secure employee access</div>
-      <h2 class="text-2xl font-bold mt-2">Welcome back</h2>
-      <p class="muted text-sm mt-2 mb-6">Sign in with the account invited by your administrator.</p>
-      <form id="loginForm" class="space-y-4">
-        <label class="block text-sm font-medium">Work email<input id="loginEmail" type="email" autocomplete="username"
-            class="field mt-1" required placeholder="you@company.com"></label>
-        <label class="block text-sm font-medium">Password<input id="loginPassword" type="password"
-            autocomplete="current-password" class="field mt-1" required placeholder="Your password"></label>
-        <button id="loginBtn"
-          class="w-full rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Sign in</button>
-        <p id="loginError" class="text-sm text-red-600" role="alert"></p>
-      </form>
-      <div id="invitePasswordPanel" class="hidden border-t borderline mt-6 pt-5">
-        <h3 class="font-semibold">Complete your invited account</h3>
-        <p class="muted text-sm mt-1 mb-3">Choose a password to activate your account.</p>
-        <label class="block text-sm font-medium">New password<input id="invitePassword" type="password" minlength="8"
-            class="field mt-1" autocomplete="new-password"></label>
-        <button id="setInvitePasswordBtn"
-          class="mt-3 w-full rounded-lg bg-emerald-700 text-white px-5 py-3 font-semibold">Set password and
-          continue</button>
-        <p id="inviteError" class="text-sm text-red-600 mt-2" role="alert"></p>
-      </div>
-    </div>
-  </section>
-  <main id="appScreen" class="hidden max-w-6xl mx-auto px-4 py-7 space-y-6">
-    <nav id="employeeTabs" class="hidden panel rounded-xl p-2 flex flex-wrap gap-2"
-      aria-label="Employee workspace tabs">
-      <button id="discoveryTabBtn" class="rounded-lg border px-4 py-2.5 text-sm font-semibold tab-active">Discovery
-        Session</button>
-      <button id="sessionManagerTabBtn" class="rounded-lg border px-4 py-2.5 text-sm font-semibold soft">Session
-        Manager</button>
-    </nav>
-    <nav id="adminTabs" class="hidden panel rounded-xl p-2 flex flex-wrap gap-2"
-      aria-label="Administrator workspace tabs">
-      <button id="newEmployeesTabBtn" class="rounded-lg border px-4 py-2.5 text-sm font-semibold tab-active">New
-        Employees</button>
-      <button id="sessionTrackingTabBtn" class="rounded-lg border px-4 py-2.5 text-sm font-semibold soft">Session
-        Tracking</button>
-    </nav>
-    <section id="employeeDiscoveryTab" class="space-y-6">
-      <section id="setup" class="panel rounded-2xl p-5 sm:p-7 shadow-sm">
-        <h2 class="text-lg font-semibold">Start a discovery session</h2>
-        <p class="muted text-sm mt-1 mb-5">Enter the fixed meeting details. All project questions will be generated
-          dynamically from the project context and your answers.</p>
-        <div class="grid sm:grid-cols-2 gap-4">
-          <label class="text-sm font-medium">Client name *<input id="clientName"
-              class="mt-1 w-full rounded-lg border border-slate-300 p-3" maxlength="150" required
-              placeholder="Client or project sponsor name"></label>
-          <label class="text-sm font-medium">Company name *<input id="companyName"
-              class="mt-1 w-full rounded-lg border border-slate-300 p-3" maxlength="150" required
-              placeholder="Company / organization"></label>
-          <label class="text-sm font-medium">Contact person's name *<input id="contactName"
-              class="mt-1 w-full rounded-lg border border-slate-300 p-3" maxlength="100" required
-              placeholder="Primary contact"></label>
-          <label class="text-sm font-medium">Contact person's email *<input id="contactEmail" type="email"
-              class="mt-1 w-full rounded-lg border border-slate-300 p-3" maxlength="254" required
-              placeholder="name@company.com"></label>
-          <label class="text-sm font-medium sm:col-span-2">Project name <span
-              class="font-normal text-slate-500">(optional; a name will be generated if blank)</span><input
-              id="projectName" class="mt-1 w-full rounded-lg border border-slate-300 p-3" maxlength="180"
-              placeholder="e.g. Customer Experience Transformation"></label>
-          <label class="text-sm font-medium sm:col-span-2">Project type *<input id="projectType"
-              class="mt-1 w-full rounded-lg border border-slate-300 p-3" maxlength="150" required
-              placeholder="e.g. Contact center, workflow automation, AI assistant, CRM implementation"></label>
-          <label class="text-sm font-medium">Session visibility<select id="sessionVisibility" class="field mt-1">
-              <option value="private">Private — only me and admins</option>
-              <option value="team">Share with my team</option>
-            </select></label>
-          <label id="sessionTeamWrap" class="hidden text-sm font-medium">Share with team<select id="sessionTeam"
-              class="field mt-1">
-              <option value="">Select a team</option>
-            </select></label>
-          <label class="text-sm font-medium sm:col-span-2">Brief project description <span
-              class="font-normal text-slate-500">(optional)</span><textarea id="projectDescription" rows="3"
-              class="mt-1 w-full rounded-lg border border-slate-300 p-3" maxlength="3000"
-              placeholder="What has the client told you so far? This helps the AI tailor its first questions."></textarea></label>
-        </div>
-        <div class="flex flex-wrap gap-3 mt-5"><button id="startBtn"
-            class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Start discovery
-            →</button><button id="restoreBtn" class="hidden rounded-lg border px-5 py-3 soft">Restore saved
-            session</button></div>
-        <p id="setupError" class="text-sm text-red-600 mt-3" role="alert"></p>
-      </section>
+      body.dark .tab-active {
+        background: #2563eb;
+        color: #fff;
+      }
 
-      <section id="workspace" class="hidden space-y-5">
-        <div class="panel rounded-2xl p-5 shadow-sm">
-          <div class="flex flex-wrap justify-between gap-3 items-start">
-            <div>
-              <div class="text-xs uppercase tracking-widest text-blue-600">Current checkpoint</div>
-              <h2 id="checkpointTitle" class="text-xl font-bold mt-1"></h2>
-              <p id="checkpointHint" class="muted text-sm mt-1"></p>
-            </div>
-            <div class="text-right">
-              <div id="checkpointCount" class="font-semibold text-sm"></div>
-              <div class="text-xs muted">Six checkpoints total</div>
-            </div>
-          </div>
-          <div class="h-2 rounded-full bg-slate-200 mt-4 overflow-hidden">
-            <div id="progressBar" class="h-full bg-blue-600 rounded-full" style="width:0%"></div>
-          </div>
-          <div id="checkpointPills" class="flex flex-wrap gap-2 mt-4"></div>
-        </div>
-        <div class="panel rounded-2xl p-5 sm:p-6 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h3 class="font-semibold">Discovery conversation</h3>
-            <div class="flex gap-3"><button id="refreshBtn" class="text-sm underline text-blue-700">↻ Retry /
-                refresh</button><button id="backBtn" class="text-sm underline muted">← Previous checkpoint</button>
-            </div>
-          </div>
-          <div id="conversation" class="space-y-4 min-h-24"></div>
-          <div id="answerArea" class="hidden mt-5 border-t borderline pt-5">
-            <label id="answerLabel" class="block text-sm font-semibold mb-2" for="answerInput">Your answer</label>
-            <textarea id="answerInput" rows="4" maxlength="5000" class="w-full rounded-xl border border-slate-300 p-3"
-              placeholder="Capture the client's answer..."></textarea>
-            <div id="suggestedAnswers" class="mt-3">
-              <div class="text-xs font-semibold muted mb-2">Suggested answer starters · click to insert, then edit as
-                needed</div>
-              <div id="suggestionButtons" class="flex flex-wrap gap-2"></div>
-            </div>
-            <div class="flex flex-wrap gap-2 mt-3"><button id="sendBtn"
-                class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 font-semibold">Submit
-                answer</button><button id="unknownBtn" class="rounded-lg border px-4 py-2.5 soft">Client doesn't know
-                yet</button><button id="acceptBtn" class="rounded-lg border px-4 py-2.5 soft">Accept answer
-                as-is</button></div>
-            <p id="answerError" class="text-sm text-red-600 mt-2" role="alert"></p><button id="continueAnywayBtn"
-              class="hidden mt-2 text-sm underline text-amber-700">Continue with this answer and flag it for
-              review</button>
-          </div>
-          <div id="busy" class="hidden text-sm text-blue-700 mt-4">Reviewing the answer and preparing the next question…
-          </div>
-          <div id="checkpointDone" class="hidden mt-5 rounded-xl bg-emerald-50 text-emerald-900 p-4">
-            <div class="font-semibold">Checkpoint complete</div>
-            <p class="text-sm mt-1">All checklist requirements have been covered or explicitly flagged.</p><label
-              class="block text-sm font-semibold mt-4" for="checkpointNote">Anything else to add for this checkpoint?
-              <span class="font-normal">(optional)</span></label><textarea id="checkpointNote" rows="3" maxlength="3000"
-              class="mt-2 w-full rounded-lg border border-emerald-300 p-3 text-slate-900"
-              placeholder="Additional context, risks, dependencies, decisions, or notes..."></textarea><button
-              id="nextCheckpointBtn" class="mt-3 rounded-lg bg-emerald-700 text-white px-4 py-2">Continue to next
-              checkpoint →</button>
-          </div>
-        </div>
-        <div class="flex justify-between gap-3"><button id="saveBtn" class="text-sm underline muted">Save progress
-            now</button><button id="reviewBtn" class="text-sm underline muted">Preview all answers</button></div>
-      </section>
+      .field {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.6rem;
+        padding: 0.7rem 0.8rem;
+        background: #fff;
+      }
 
-      <section id="review" class="hidden panel rounded-2xl p-5 sm:p-7 shadow-sm">
-        <div class="flex justify-between items-center gap-3">
-          <h2 class="text-xl font-bold">Review discovery summary</h2><button id="closeReviewBtn"
-            class="underline text-sm">Back to session</button>
-        </div>
-        <p class="muted text-sm mt-2">Review the recorded question-and-answer history. Items marked unknown or accepted
-          remain visibly flagged for the project team.</p>
-        <div id="reviewContent" class="space-y-5 mt-5"></div>
-        <div class="border-t borderline mt-6 pt-5 flex flex-wrap gap-3"><button id="validateBtn"
-            class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Run final completeness
-            check</button><button id="submitTicketBtn" disabled
-            class="rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-5 py-3">Confirm and submit
-            to Zendesk</button><button id="backToSessionBtn" class="rounded-lg border px-5 py-3 soft">Continue
-            editing</button></div>
-        <div id="validationResults" class="hidden mt-4 rounded-xl border borderline p-4 text-sm" role="status"></div>
-        <p id="submitStatus" class="text-sm mt-3" role="status"></p>
-      </section>
-    </section><!-- /employeeDiscoveryTab -->
+      body.dark .field,
+      body.dark input:not([type="checkbox"]),
+      body.dark textarea,
+      body.dark select {
+        background: #111c30;
+        border-color: #475569;
+        color: #e5edf8;
+      }
 
-    <section id="sessionManagerTab" class="hidden space-y-5">
-      <div class="flex flex-wrap items-end justify-between gap-3">
+      body.dark .bg-slate-50 { background-color: #0b1220 !important; }
+      body.dark .bg-white { background-color: #172338 !important; }
+      body.dark .bg-slate-100 { background-color: #26364d !important; color: #e2e8f0 !important; }
+      body.dark .bg-blue-50 { background-color: #172d4b !important; color: #dbeafe !important; }
+      body.dark .bg-emerald-50 { background-color: #12352f !important; color: #d1fae5 !important; }
+      body.dark .bg-amber-50 { background-color: #3a2c16 !important; color: #fef3c7 !important; }
+      body.dark .text-slate-900, body.dark .text-slate-800 { color: #e5edf8 !important; }
+      body.dark .text-slate-700, body.dark .text-slate-600 { color: #cbd5e1 !important; }
+      body.dark .text-blue-700 { color: #93c5fd !important; }
+      body.dark .text-emerald-700 { color: #6ee7b7 !important; }
+      body.dark .text-amber-700 { color: #fcd34d !important; }
+      body.dark .text-red-600 { color: #fca5a5 !important; }
+      body.dark .border-slate-200, body.dark .border-slate-300 { border-color: #3b4b63 !important; }
+      body.dark .shadow-sm, body.dark .shadow { box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+      body.dark option { background: #172338; color: #e5edf8; }
+      body.dark .loading-panel { background: #172d4b; border-color: #31547b; color: #dbeafe; }
+    </style>
+  </head>
+
+  <body class="min-h-screen bg-slate-50 text-slate-800">
+    <header class="bg-slate-900 text-white shadow">
+      <div class="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-bold">Session Manager</h2>
-          <p class="muted text-sm mt-1">Your private and team-shared discovery sessions.</p>
-        </div><button id="refreshMySessionsBtn" class="rounded-lg border px-4 py-2 text-sm soft">Refresh
-          sessions</button>
-      </div>
-      <div class="grid sm:grid-cols-3 gap-3">
-        <div class="panel rounded-xl p-4">
-          <div class="text-xs muted">Active</div>
-          <div id="myActiveCount" class="text-2xl font-bold">—</div>
+          <div class="text-xs uppercase tracking-widest text-cyan-300">Presales workspace</div>
+          <h1 class="text-xl sm:text-2xl font-bold">SOW Discovery Intake</h1>
+          <p id="headerSubtitle" class="text-sm text-slate-300">AI-guided discovery and session management</p>
         </div>
-        <div class="panel rounded-xl p-4">
-          <div class="text-xs muted">Submitted</div>
-          <div id="mySubmittedCount" class="text-2xl font-bold">—</div>
-        </div>
-        <div class="panel rounded-xl p-4">
-          <div class="text-xs muted">Shared with me</div>
-          <div id="mySharedCount" class="text-2xl font-bold">—</div>
+        <div class="flex items-center gap-2">
+          <span id="userBadge" class="hidden text-sm text-slate-200"></span
+          ><button id="themeBtn" class="border border-slate-500 rounded-lg px-3 py-2 text-sm">Toggle dark mode</button
+          ><button id="logoutBtn" class="hidden border border-slate-500 rounded-lg px-3 py-2 text-sm">Sign out</button>
         </div>
       </div>
-      <div id="mySessionsList" class="space-y-3">
-        <div class="panel rounded-xl p-5 muted text-sm">Loading your sessions…</div>
+    </header>
+    <section id="authLoading" class="max-w-md mx-auto px-4 py-16" role="status" aria-live="polite">
+      <div class="panel loading-panel rounded-2xl p-8 flex items-center justify-center gap-3 text-sm">
+        <span class="loading-spinner" aria-hidden="true"></span><span>Checking your signed-in account…</span>
       </div>
-      <p id="mySessionsError" class="text-sm text-red-600" role="alert"></p>
     </section>
-
-    <section id="adminEmployeesTab" class="hidden space-y-5">
-      <div>
-        <h2 class="text-2xl font-bold">Add new employees</h2>
-        <p class="muted text-sm mt-1">Invite employees to access the SOW Discovery workspace. Accounts are invite-only.
-        </p>
-      </div>
-      <div class="panel rounded-2xl p-5 sm:p-6">
-        <form id="inviteEmployeeForm" class="grid sm:grid-cols-2 gap-4">
-          <label class="text-sm font-medium">Employee full name<input id="employeeFullName" class="field mt-1"
-              maxlength="120" required placeholder="Full name"></label>
-          <label class="text-sm font-medium">Work email<input id="employeeEmail" type="email" class="field mt-1"
-              required placeholder="name@company.com"></label>
-          <label class="text-sm font-medium">Access role<select id="employeeRole" class="field mt-1">
-              <option value="presales">Presales employee</option>
-              <option value="admin">Administrator</option>
-            </select></label>
-          <label class="text-sm font-medium">Team<select id="employeeTeam" class="field mt-1">
-              <option value="">No team assigned</option>
-            </select></label>
-          <div class="sm:col-span-2 flex flex-wrap items-center gap-3"><button id="inviteEmployeeBtn"
-              class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-5 py-3 font-semibold">Send
-              invitation</button><span id="inviteEmployeeStatus" class="text-sm" role="status"></span></div>
+    <section id="loginScreen" class="hidden max-w-md mx-auto px-4 py-12">
+      <div class="panel rounded-2xl p-6 sm:p-8 shadow-sm">
+        <div class="text-xs uppercase tracking-widest text-blue-700 font-semibold">Secure employee access</div>
+        <h2 class="text-2xl font-bold mt-2">Welcome back</h2>
+        <p class="muted text-sm mt-2 mb-6">Sign in with the account invited by your administrator.</p>
+        <form id="loginForm" class="space-y-4">
+          <label class="block text-sm font-medium"
+            >Work email<input id="loginEmail" type="email" autocomplete="username" class="field mt-1" required placeholder="you@company.com"
+          /></label>
+          <label class="block text-sm font-medium"
+            >Password<input id="loginPassword" type="password" autocomplete="current-password" class="field mt-1" required placeholder="Your password"
+          /></label>
+          <button id="loginBtn" class="w-full rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Sign in</button>
+          <p id="loginError" class="text-sm text-red-600" role="alert"></p>
+          <p id="inviteSuccess" class="hidden text-sm text-emerald-700 mt-2" role="status" aria-live="polite">Password created successfully. Please sign in with your new password.</p>
         </form>
-      </div>
-      <div class="panel rounded-xl p-5">
-        <div class="flex items-center justify-between gap-3">
-          <h3 class="font-semibold">Existing employees</h3><button id="refreshEmployeesBtn"
-            class="text-sm underline text-blue-700">Refresh</button>
-        </div>
-        <div id="employeesList" class="mt-4 space-y-2">
-          <p class="muted text-sm">Loading employees…</p>
+        <div id="invitePasswordPanel" class="hidden border-t borderline mt-6 pt-5">
+          <h3 class="font-semibold">Complete your invited account</h3>
+          <p class="muted text-sm mt-1 mb-3">Choose a password to activate your account.</p>
+          <label class="block text-sm font-medium"
+            >New password<input id="invitePassword" type="password" minlength="12" class="field mt-1" autocomplete="new-password" aria-describedby="invitePasswordStrength invitePasswordChecklist"
+          /></label>
+          <div id="invitePasswordStrength" class="mt-3" aria-live="polite">
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="muted font-medium">Password strength</span>
+              <span id="invitePasswordStrengthLabel" class="font-semibold text-red-600">Weak</span>
+            </div>
+            <div class="h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div id="invitePasswordStrengthBar" class="h-full rounded-full bg-red-500" style="width: 0%; transition: width .2s ease, background-color .2s ease"></div>
+            </div>
+          </div>
+          <div id="invitePasswordChecklist" class="mt-3 rounded-lg bg-slate-50 p-3 text-sm space-y-2">
+            <p class="font-semibold mb-1">Password security checklist</p>
+            <p id="inviteRuleLength" class="text-red-600">✗ At least 12 characters</p>
+            <p id="inviteRuleUpper" class="text-red-600">✗ At least one uppercase letter (A–Z)</p>
+            <p id="inviteRuleLower" class="text-red-600">✗ At least one lowercase letter (a–z)</p>
+            <p id="inviteRuleNumber" class="text-red-600">✗ At least one number (0–9)</p>
+            <p id="inviteRuleSpecial" class="text-red-600">✗ At least one special character</p>
+          </div>
+          <label class="block text-sm font-medium mt-4"
+            >Confirm new password<input id="invitePasswordConfirm" type="password" minlength="12" class="field mt-1" autocomplete="new-password" aria-describedby="invitePasswordMatch"
+          /></label>
+          <p id="invitePasswordMatch" class="text-xs muted mt-1" aria-live="polite">Enter the same password again to confirm it.</p>
+          <button id="setInvitePasswordBtn" disabled class="mt-3 w-full rounded-lg bg-emerald-700 text-white px-5 py-3 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">Set password</button>
+          <p id="inviteError" class="text-sm text-red-600 mt-2" role="alert"></p>
         </div>
       </div>
     </section>
+    <main id="appScreen" class="hidden max-w-6xl mx-auto px-4 py-7 space-y-6">
+      <nav id="employeeTabs" class="hidden panel rounded-xl p-2 flex flex-wrap gap-2" aria-label="Employee workspace tabs">
+        <button id="discoveryTabBtn" class="rounded-lg border px-4 py-2.5 text-sm font-semibold tab-active">Discovery Session</button>
+        <button id="sessionManagerTabBtn" class="rounded-lg border px-4 py-2.5 text-sm font-semibold soft">Session Manager</button>
+      </nav>
+      <nav id="adminTabs" class="hidden panel rounded-xl p-2 flex flex-wrap gap-2" aria-label="Administrator workspace tabs">
+        <button id="newEmployeesTabBtn" class="rounded-lg border px-4 py-2.5 text-sm font-semibold tab-active">New Employees</button>
+        <button id="sessionTrackingTabBtn" class="rounded-lg border px-4 py-2.5 text-sm font-semibold soft">Session Tracking</button>
+      </nav>
+      <section id="employeeDiscoveryTab" class="space-y-6">
+        <section id="setup" class="panel rounded-2xl p-5 sm:p-7 shadow-sm">
+          <h2 class="text-lg font-semibold">Start a discovery session</h2>
+          <p class="muted text-sm mt-1 mb-5">
+            Enter the fixed meeting details. All project questions will be generated dynamically from the project context and your answers.
+          </p>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <label class="text-sm font-medium"
+              >Client name *<input
+                id="clientName"
+                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
+                maxlength="150"
+                required
+                placeholder="Client or project sponsor name"
+            /></label>
+            <label class="text-sm font-medium"
+              >Company name *<input
+                id="companyName"
+                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
+                maxlength="150"
+                required
+                placeholder="Company / organization"
+            /></label>
+            <label class="text-sm font-medium"
+              >Contact person's name *<input
+                id="contactName"
+                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
+                maxlength="100"
+                required
+                placeholder="Primary contact"
+            /></label>
+            <label class="text-sm font-medium"
+              >Contact person's email *<input
+                id="contactEmail"
+                type="email"
+                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
+                maxlength="254"
+                required
+                placeholder="name@company.com"
+            /></label>
+            <label class="text-sm font-medium sm:col-span-2"
+              >Project name <span class="font-normal text-slate-500">(optional; a name will be generated if blank)</span
+              ><input
+                id="projectName"
+                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
+                maxlength="180"
+                placeholder="e.g. Customer Experience Transformation"
+            /></label>
+            <label class="text-sm font-medium sm:col-span-2"
+              >Project type *<input
+                id="projectType"
+                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
+                maxlength="150"
+                required
+                placeholder="e.g. Contact center, workflow automation, AI assistant, CRM implementation"
+            /></label>
+            <label class="text-sm font-medium"
+              >Session visibility<select id="sessionVisibility" class="field mt-1">
+                <option value="private">Private — only me and admins</option>
+                <option value="team">Share with my team</option>
+              </select></label
+            >
+            <label id="sessionTeamWrap" class="hidden text-sm font-medium"
+              >Share with team<select id="sessionTeam" class="field mt-1">
+                <option value="">Select a team</option>
+              </select></label
+            >
+            <label class="text-sm font-medium sm:col-span-2"
+              >Brief project description <span class="font-normal text-slate-500">(optional)</span
+              ><textarea
+                id="projectDescription"
+                rows="3"
+                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
+                maxlength="3000"
+                placeholder="What has the client told you so far? This helps the AI tailor its first questions."
+              ></textarea>
+            </label>
+          </div>
+          <div class="flex flex-wrap gap-3 mt-5">
+            <button id="startBtn" class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Start discovery →</button
+            ><button id="restoreBtn" class="hidden rounded-lg border px-5 py-3 soft">Restore saved session</button>
+          </div>
+          <p id="setupError" class="text-sm text-red-600 mt-3" role="alert"></p>
+        </section>
 
-    <section id="adminSessionTrackingTab" class="hidden space-y-5">
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 class="text-2xl font-bold">Session tracking</h2>
-          <p class="muted text-sm mt-1">Monitor discovery work across all employees and teams.</p>
-        </div><button id="refreshAllSessionsBtn" class="rounded-lg border px-4 py-2 text-sm soft">Refresh
-          tracking</button>
-      </div>
-      <div class="grid sm:grid-cols-4 gap-3">
-        <div class="panel rounded-xl p-4">
-          <div class="text-xs muted">Total sessions</div>
-          <div id="allTotalCount" class="text-2xl font-bold">—</div>
-        </div>
-        <div class="panel rounded-xl p-4">
-          <div class="text-xs muted">In progress</div>
-          <div id="allActiveCount" class="text-2xl font-bold">—</div>
-        </div>
-        <div class="panel rounded-xl p-4">
-          <div class="text-xs muted">Submitted</div>
-          <div id="allSubmittedCount" class="text-2xl font-bold">—</div>
-        </div>
-        <div class="panel rounded-xl p-4">
-          <div class="text-xs muted">Needs review</div>
-          <div id="allReviewCount" class="text-2xl font-bold">—</div>
-        </div>
-      </div>
-      <div class="panel rounded-xl p-4">
-        <div class="grid sm:grid-cols-3 gap-3"><input id="trackingSearch" class="field"
-            placeholder="Search employee, company, project…"><select id="trackingStatus" class="field">
-            <option value="all">All statuses</option>
-            <option value="draft">Draft</option>
-            <option value="in_progress">In progress</option>
-            <option value="review">Review</option>
-            <option value="submitted">Submitted</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select><select id="trackingTeam" class="field">
-            <option value="all">All teams</option>
-          </select></div>
-      </div>
-      <div id="allSessionsList" class="space-y-3">
-        <div class="panel rounded-xl p-5 muted text-sm">Loading session tracking…</div>
-      </div>
-      <p id="allSessionsError" class="text-sm text-red-600" role="alert"></p>
-    </section>
-    <section id="sessionDetailPanel" class="hidden fixed inset-0 z-50 bg-slate-950/60 p-4 overflow-y-auto"
-      aria-modal="true" role="dialog">
-      <div class="panel max-w-3xl mx-auto my-8 rounded-2xl p-5 sm:p-7">
-        <div class="flex items-start justify-between gap-3">
+        <section id="workspace" class="hidden space-y-5">
+          <div class="panel rounded-2xl p-5 shadow-sm">
+            <div class="flex flex-wrap justify-between gap-3 items-start">
+              <div>
+                <div class="text-xs uppercase tracking-widest text-blue-600">Current checkpoint</div>
+                <h2 id="checkpointTitle" class="text-xl font-bold mt-1"></h2>
+                <p id="checkpointHint" class="muted text-sm mt-1"></p>
+              </div>
+              <div class="text-right">
+                <div id="checkpointCount" class="font-semibold text-sm"></div>
+                <div class="text-xs muted">Six checkpoints total</div>
+              </div>
+            </div>
+            <div class="h-2 rounded-full bg-slate-200 mt-4 overflow-hidden">
+              <div id="progressBar" class="h-full bg-blue-600 rounded-full" style="width: 0%"></div>
+            </div>
+            <div id="checkpointPills" class="flex flex-wrap gap-2 mt-4"></div>
+          </div>
+          <div class="panel rounded-2xl p-5 sm:p-6 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h3 class="font-semibold">Discovery conversation</h3>
+              <div class="flex gap-3">
+                <button id="refreshBtn" class="text-sm underline text-blue-700">↻ Retry / refresh</button
+                ><button id="backBtn" class="text-sm underline muted hidden">← Previous checkpoint</button>
+              </div>
+            </div>
+            <div id="conversation" class="space-y-4 min-h-24"></div>
+            <div id="answerArea" class="hidden mt-5 border-t borderline pt-5">
+              <label id="answerLabel" class="block text-sm font-semibold mb-2" for="answerInput">Your answer</label>
+              <textarea
+                id="answerInput"
+                rows="4"
+                maxlength="5000"
+                class="w-full rounded-xl border border-slate-300 p-3"
+                placeholder="Capture the client's answer..."
+              ></textarea>
+              <div id="suggestedAnswers" class="mt-3">
+                <div class="text-xs font-semibold muted mb-2">Suggested answer starters · click to insert, then edit as needed</div>
+                <div id="suggestionButtons" class="flex flex-wrap gap-2"></div>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-3">
+                <button id="sendBtn" class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 font-semibold">Submit answer</button
+                ><button id="unknownBtn" class="rounded-lg border px-4 py-2.5 soft">Client doesn't know yet</button
+                ><button id="acceptBtn" class="rounded-lg border px-4 py-2.5 soft">Accept answer as-is</button>
+              </div>
+              <p id="answerError" class="text-sm text-red-600 mt-2" role="alert"></p>
+              <button id="continueAnywayBtn" class="hidden mt-2 text-sm underline text-amber-700">Continue with this answer and flag it for review</button>
+            </div>
+            <div id="busy" class="hidden mt-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 px-4 py-3 text-sm flex items-center gap-3" role="status" aria-live="polite">
+              <span class="loading-spinner" aria-hidden="true"></span>
+              <span id="busyMessage">Reviewing the answer and preparing the next question…</span>
+            </div>
+            <div id="checkpointDone" class="hidden mt-5 rounded-xl bg-emerald-50 text-emerald-900 p-4">
+              <div class="font-semibold">Checkpoint complete</div>
+              <p class="text-sm mt-1">All checklist requirements have been covered or explicitly flagged.</p>
+              <label class="block text-sm font-semibold mt-4" for="checkpointNote"
+                >Anything else to add for this checkpoint? <span class="font-normal">(optional)</span></label
+              ><textarea
+                id="checkpointNote"
+                rows="3"
+                maxlength="3000"
+                class="mt-2 w-full rounded-lg border border-emerald-300 p-3 text-slate-900"
+                placeholder="Additional context, risks, dependencies, decisions, or notes..."
+              ></textarea
+              ><button id="nextCheckpointBtn" class="mt-3 rounded-lg bg-emerald-700 text-white px-4 py-2">Continue to next checkpoint →</button>
+            </div>
+          </div>
+          <div class="flex justify-between gap-3">
+            <span id="autosaveStatus" class="text-xs muted" role="status" aria-live="polite">Changes save automatically</span>
+            <button id="reviewBtn" class="text-sm underline muted">Preview all answers</button>
+          </div>
+        </section>
+
+        <section id="review" class="hidden panel rounded-2xl p-5 sm:p-7 shadow-sm">
+          <div class="flex justify-between items-center gap-3">
+            <h2 class="text-xl font-bold">Review discovery summary</h2>
+            <button id="closeReviewBtn" class="underline text-sm">Back to session</button>
+          </div>
+          <p class="muted text-sm mt-2">
+            Review the recorded question-and-answer history. Items marked unknown or accepted remain visibly flagged for the project team.
+          </p>
+          <div id="reviewContent" class="space-y-5 mt-5"></div>
+          <div class="border-t borderline mt-6 pt-5 flex flex-wrap gap-3">
+            <button id="validateBtn" class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Run final completeness check</button
+            ><button id="submitTicketBtn" disabled class="rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-5 py-3">
+              Confirm and submit to Zendesk</button
+            ><button id="backToSessionBtn" class="rounded-lg border px-5 py-3 soft">Continue editing</button>
+          </div>
+          <div id="validationResults" class="hidden mt-4 rounded-xl border borderline p-4 text-sm" role="status"></div>
+          <p id="submitStatus" class="text-sm mt-3" role="status"></p>
+        </section>
+      </section>
+      <!-- /employeeDiscoveryTab -->
+
+      <section id="sessionManagerTab" class="hidden space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div class="text-xs uppercase tracking-widest text-blue-700">Session details</div>
-            <h2 id="detailTitle" class="text-xl font-bold mt-1">Discovery session</h2>
-            <p id="detailMeta" class="muted text-sm mt-1"></p>
-          </div><button id="closeSessionDetailBtn" class="rounded-lg border px-3 py-2 text-sm soft">Close</button>
+            <h2 class="text-2xl font-bold">Session Manager</h2>
+            <p class="muted text-sm mt-1">Your private and team-shared discovery sessions.</p>
+          </div>
+          <button id="refreshMySessionsBtn" class="rounded-lg border px-4 py-2 text-sm soft">Refresh sessions</button>
         </div>
-        <div id="detailAnswers" class="mt-5 space-y-4"></div>
-      </div>
-    </section>
-  </main>
-  <footer id="appFooter" class="text-center text-xs muted py-6">SOW Discovery Intake · Secure employee workspace
-  </footer>
-  <script>
-    const $ = id => document.getElementById(id);
-    let supabaseClient = null;
-    let config = null, session = null, pending = null, currentFollowUpCount = 0, currentUser = null, currentRole = null, saveTimer = null, allSessionsCache = [], mySessionsCache = [];
-    const detailsFields = ['clientName', 'companyName', 'contactName', 'contactEmail', 'projectName', 'projectType', 'projectDescription'];
-    function detailsFromForm() { return { ...Object.fromEntries(detailsFields.map(id => [id, $(id).value.trim()])), visibility: $('sessionVisibility').value, team_id: $('sessionVisibility').value === 'team' ? $('sessionTeam').value : null }; }
-    function show(el, on = true) { $(el).classList.toggle('hidden', !on); }
-    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        <div class="grid sm:grid-cols-3 gap-3">
+          <div class="panel rounded-xl p-4">
+            <div class="text-xs muted">Active</div>
+            <div id="myActiveCount" class="text-2xl font-bold">—</div>
+          </div>
+          <div class="panel rounded-xl p-4">
+            <div class="text-xs muted">Submitted</div>
+            <div id="mySubmittedCount" class="text-2xl font-bold">—</div>
+          </div>
+          <div class="panel rounded-xl p-4">
+            <div class="text-xs muted">Shared with me</div>
+            <div id="mySharedCount" class="text-2xl font-bold">—</div>
+          </div>
+        </div>
+        <div id="mySessionsList" class="space-y-3">
+          <div class="panel rounded-xl p-5 muted text-sm">Loading your sessions…</div>
+        </div>
+        <p id="mySessionsError" class="text-sm text-red-600" role="alert"></p>
+      </section>
+
+      <section id="adminEmployeesTab" class="hidden space-y-5">
+        <div>
+          <h2 class="text-2xl font-bold">Add new employees</h2>
+          <p class="muted text-sm mt-1">Invite employees to access the SOW Discovery workspace. Accounts are invite-only.</p>
+        </div>
+        <div class="panel rounded-2xl p-5 sm:p-6">
+          <form id="inviteEmployeeForm" class="grid sm:grid-cols-2 gap-4">
+            <label class="text-sm font-medium"
+              >Employee full name<input id="employeeFullName" class="field mt-1" maxlength="120" required placeholder="Full name"
+            /></label>
+            <label class="text-sm font-medium"
+              >Work email<input id="employeeEmail" type="email" class="field mt-1" required placeholder="name@company.com"
+            /></label>
+            <label class="text-sm font-medium"
+              >Access role<select id="employeeRole" class="field mt-1">
+                <option value="presales">Presales employee</option>
+                <option value="admin">Administrator</option>
+              </select></label
+            >
+            <label class="text-sm font-medium"
+              >Team<select id="employeeTeam" class="field mt-1">
+                <option value="">No team assigned</option>
+              </select></label
+            >
+            <div class="sm:col-span-2 flex flex-wrap items-center gap-3">
+              <button id="inviteEmployeeBtn" class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-5 py-3 font-semibold">Send invitation</button
+              ><span id="inviteEmployeeStatus" class="text-sm" role="status"></span>
+            </div>
+          </form>
+        </div>
+        <div class="panel rounded-xl p-5">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="font-semibold">Existing employees</h3>
+            <button id="refreshEmployeesBtn" class="text-sm underline text-blue-700">Refresh</button>
+          </div>
+          <div class="mt-4 max-w-xs">
+            <label class="block text-xs font-semibold muted mb-1" for="employeeRoleFilter">Filter by access role</label>
+            <select id="employeeRoleFilter" class="field">
+              <option value="all">All access roles</option><option value="admin">Admin</option><option value="presales">Presales</option>
+            </select>
+          </div>
+          <div id="employeesList" class="mt-4 space-y-2">
+            <p class="muted text-sm">Loading employees…</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="adminSessionTrackingTab" class="hidden space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 class="text-2xl font-bold">Session tracking</h2>
+            <p class="muted text-sm mt-1">Monitor discovery work across all employees and teams.</p>
+          </div>
+          <button id="refreshAllSessionsBtn" class="rounded-lg border px-4 py-2 text-sm soft">Refresh tracking</button>
+        </div>
+        <div class="grid sm:grid-cols-4 gap-3">
+          <div class="panel rounded-xl p-4">
+            <div class="text-xs muted">Total sessions</div>
+            <div id="allTotalCount" class="text-2xl font-bold">—</div>
+          </div>
+          <div class="panel rounded-xl p-4">
+            <div class="text-xs muted">In progress</div>
+            <div id="allActiveCount" class="text-2xl font-bold">—</div>
+          </div>
+          <div class="panel rounded-xl p-4">
+            <div class="text-xs muted">Submitted</div>
+            <div id="allSubmittedCount" class="text-2xl font-bold">—</div>
+          </div>
+          <div class="panel rounded-xl p-4">
+            <div class="text-xs muted">Needs review</div>
+            <div id="allReviewCount" class="text-2xl font-bold">—</div>
+          </div>
+        </div>
+        <div class="panel rounded-xl p-4">
+          <div class="grid sm:grid-cols-3 gap-3">
+            <input id="trackingSearch" class="field" placeholder="Search employee, company, project…" /><select id="trackingStatus" class="field">
+              <option value="all">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="in_progress">In progress</option>
+              <option value="review">Review</option>
+              <option value="submitted">Submitted</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option></select
+            ><select id="trackingTeam" class="field">
+              <option value="all">All teams</option>
+            </select>
+          </div>
+        </div>
+        <div id="allSessionsList" class="space-y-3">
+          <div class="panel rounded-xl p-5 muted text-sm">Loading session tracking…</div>
+        </div>
+        <p id="allSessionsError" class="text-sm text-red-600" role="alert"></p>
+      </section>
+      <section id="sessionDetailPanel" class="hidden fixed inset-0 z-50 bg-slate-950/60 p-4 overflow-y-auto" aria-modal="true" role="dialog">
+        <div class="panel max-w-3xl mx-auto my-8 rounded-2xl p-5 sm:p-7">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-xs uppercase tracking-widest text-blue-700">Session details</div>
+              <h2 id="detailTitle" class="text-xl font-bold mt-1">Discovery session</h2>
+              <p id="detailMeta" class="muted text-sm mt-1"></p>
+            </div>
+            <button id="closeSessionDetailBtn" class="rounded-lg border px-3 py-2 text-sm soft">Close</button>
+          </div>
+          <div id="detailAnswers" class="mt-5 space-y-4"></div>
+        </div>
+      </section>
+    </main>
+    <footer id="appFooter" class="text-center text-xs muted py-6">SOW Discovery Intake · Secure employee workspace</footer>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let supabaseClient = null;
+      let isInviteFlow = false;
+      let config = null,
+        session = null,
+        pending = null,
+        currentFollowUpCount = 0,
+        currentUser = null,
+        currentRole = null,
+        saveTimer = null,
+        allSessionsCache = [],
+        mySessionsCache = [],
+        employeesCache = [];
+      const CACHE_TTL_MS = 5 * 60 * 1000;
+      function cacheKey(name) { return `sow-intake:${currentUser?.id || "guest"}:${name}`; }
+      function readCache(name) {
+        try {
+          const item = JSON.parse(sessionStorage.getItem(cacheKey(name)) || "null");
+          return item && Date.now() - item.savedAt < CACHE_TTL_MS ? item.data : null;
+        } catch (_) { return null; }
+      }
+      function writeCache(name, data) {
+        try { sessionStorage.setItem(cacheKey(name), JSON.stringify({ savedAt: Date.now(), data })); } catch (_) {}
+      }
+      function clearAppCache() {
+        try { Object.keys(sessionStorage).filter(k => k.startsWith("sow-intake:")).forEach(k => sessionStorage.removeItem(k)); } catch (_) {}
+      }
+      const detailsFields = ["clientName", "companyName", "contactName", "contactEmail", "projectName", "projectType", "projectDescription"];
+      function detailsFromForm() {
+        return {
+          ...Object.fromEntries(detailsFields.map((id) => [id, $(id).value.trim()])),
+          visibility: $("sessionVisibility").value,
+          team_id: $("sessionVisibility").value === "team" ? $("sessionTeam").value : null,
+        };
+      }
+      function show(el, on = true) {
+        $(el).classList.toggle("hidden", !on);
+      }
+      function escapeHtml(s) {
+        return String(s ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
       function normalizeAnswer(a = {}) {
         return {
           ...a,
@@ -430,83 +608,1288 @@
           followUpAnswer: a.followUpAnswer ?? a.follow_up_answer,
           followUpMainPoint: a.followUpMainPoint ?? a.follow_up_main_point,
           mainPoint: a.mainPoint ?? a.main_point,
-          needsReview: a.needsReview ?? a.needs_review ?? false
+          needsReview: a.needsReview ?? a.needs_review ?? false,
         };
       }
 
-    function normalizeSession(s = {}) { return { ...s, id: s.id ?? s.session_id, clientName: s.clientName ?? s.client_name, companyName: s.companyName ?? s.company_name, contactName: s.contactName ?? s.contact_name, contactEmail: s.contactEmail ?? s.contact_email, projectName: s.projectName ?? s.project_name, projectType: s.projectType ?? s.project_type, projectDescription: s.projectDescription ?? s.project_description, checkpointIndex: s.checkpointIndex ?? s.checkpoint_index ?? 0, maxCheckpointIndex: s.maxCheckpointIndex ?? s.max_checkpoint_index ?? 0, checkpointNotes: s.checkpointNotes ?? s.checkpoint_notes ?? {}, followUpCounts: s.followUpCounts ?? s.follow_up_counts ?? {}, team_id: s.team_id ?? s.teamId, answers: (s.answers || []).map(normalizeAnswer) }; }
-    function checkpoint() { return config.checkpoints[session.checkpointIndex]; }
-    function history() { return (session.answers || []).filter(a => a.checkpointId === checkpoint().id); }
-    function addBubble(kind, text, extra = '') { const div = document.createElement('div'); div.className = kind === 'ai' ? 'rounded-xl bg-slate-100 text-slate-800 p-4 chat soft' : 'ml-4 sm:ml-12 rounded-xl bg-blue-50 text-blue-950 p-4 chat'; div.innerHTML = `<div class="text-xs font-bold uppercase tracking-wide mb-1">${kind === 'ai' ? 'Discovery assistant' : 'Presales response'}</div><div>${escapeHtml(text)}</div>${extra ? `<div class="mt-2 text-xs font-semibold">${escapeHtml(extra)}</div>` : ''}`; $('conversation').appendChild(div); }
-    async function api(url, body, method = 'POST') { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 45000); try { const { data: { session: authSession } } = await supabaseClient.auth.getSession(); if (!authSession) throw new Error('Your login session has expired. Please sign in again.'); const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` }; const options = { method, headers, signal: controller.signal }; if (body !== undefined) options.body = JSON.stringify(body); const r = await fetch(url, options); const d = await r.json().catch(() => ({})); if (!r.ok || d.success === false) throw new Error(d.error || 'Request failed.'); return d; } catch (e) { if (e.name === 'AbortError') throw new Error('The request took too long. Please retry.'); throw e; } finally { clearTimeout(timer); } }
-    function save() { if (!session?.id) return; session.updatedAt = new Date().toISOString(); clearTimeout(saveTimer); saveTimer = setTimeout(async () => { try { const metadata = { client_name: session.clientName, company_name: session.companyName, contact_name: session.contactName, contact_email: session.contactEmail, project_name: session.projectName, project_type: session.projectType, project_description: session.projectDescription, checkpoint_index: session.checkpointIndex, max_checkpoint_index: session.maxCheckpointIndex, checkpoint_notes: session.checkpointNotes, follow_up_counts: session.followUpCounts, status: session.status, visibility: session.visibility, team_id: session.team_id || null }; await api(`/api/sessions/${session.id}`, metadata, 'PATCH'); for (let i = 0; i < (session.answers || []).length; i++) { await api(`/api/sessions/${session.id}/answers`, { ...session.answers[i], sequence_number: i + 1 }, 'POST'); } } catch (e) { console.error('Session autosave failed:', e); const el = $('setupError'); if (el) el.textContent = 'Autosave failed: ' + e.message; } }, 500); }
-    function setTab(which) { const isAdmin = currentRole === 'admin'; show('employeeDiscoveryTab', !isAdmin && which === 'discovery'); show('sessionManagerTab', !isAdmin && which === 'manager'); show('adminEmployeesTab', isAdmin && which === 'employees'); show('adminSessionTrackingTab', isAdmin && which === 'tracking'); for (const [id, active] of [['discoveryTabBtn', which === 'discovery'], ['sessionManagerTabBtn', which === 'manager'], ['newEmployeesTabBtn', which === 'employees'], ['sessionTrackingTabBtn', which === 'tracking']]) { const b = $(id); if (b) { b.classList.toggle('tab-active', active); b.classList.toggle('soft', !active); } } }
-    function renderPills() { const host = $('checkpointPills'); host.innerHTML = ''; config.checkpoints.forEach((cp, i) => { const b = document.createElement('button'); const reachable = i <= (session.maxCheckpointIndex ?? session.checkpointIndex); b.type = 'button'; b.disabled = !reachable; b.className = 'text-xs rounded-full px-3 py-1 ' + (i < session.checkpointIndex ? 'bg-emerald-100 text-emerald-800' : i === session.checkpointIndex ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-500') + (reachable ? ' cursor-pointer hover:ring-2 hover:ring-blue-300' : ' cursor-not-allowed'); b.textContent = `${i + 1}. ${cp.title}`; if (reachable) b.onclick = () => navigateToCheckpoint(i); host.appendChild(b); }); }
-    function renderHeader() { const cp = checkpoint(); $('checkpointTitle').textContent = cp.title; $('checkpointCount').textContent = `Checkpoint ${session.checkpointIndex + 1} of 6`; $('checkpointHint').textContent = `${cp.items.length} information areas · AI-generated questions`; $('progressBar').style.width = `${((session.checkpointIndex) / 6) * 100}%`; renderPills(); }
-    async function publicApi(url, body) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 45000); try { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal }); const d = await r.json().catch(() => ({})); if (!r.ok || !d.success) throw new Error(d.error || 'Request failed.'); return d; } catch (e) { if (e.name === 'AbortError') throw new Error('The request took too long. Your answer is still here—please retry.'); throw e; } finally { clearTimeout(timer); } }
-    function setBusy(on) { show('busy', on); $('sendBtn').disabled = on; $('unknownBtn').disabled = on; $('acceptBtn').disabled = on; $('refreshBtn').disabled = on; }
-    function renderExistingHistory() { $('conversation').innerHTML = ''; history().forEach(a => { addBubble('ai', a.question, a.status === 'unknown' ? 'Flagged: client does not know yet' : a.status === 'accepted' ? 'Flagged: accepted as-is' : ''); if (a.answer) addBubble('user', a.answer); if (a.followUpQuestion) { addBubble('ai', a.followUpQuestion, 'Follow-up'); if (a.followUpAnswer) addBubble('user', a.followUpAnswer); } }); }
-    function renderSuggestions(items = []) { const host = $('suggestionButtons'); host.innerHTML = ''; $('suggestedAnswers').classList.toggle('hidden', !items.length); items.forEach(value => { const b = document.createElement('button'); b.type = 'button'; b.className = 'suggestion-chip text-sm rounded-xl px-4 py-3'; b.textContent = value; b.title = 'Insert this example into the answer field'; b.onclick = () => { $('answerInput').value = value; $('answerInput').focus(); }; host.appendChild(b); }); }
-    async function navigateToCheckpoint(index) { if (index < 0 || index > (session.maxCheckpointIndex ?? session.checkpointIndex)) return; session.checkpointIndex = index; pending = null; save(); await askNext(); }
-    async function askNext() { const cp = checkpoint(); renderHeader(); renderExistingHistory(); renderSuggestions([]); show('checkpointDone', false); show('answerArea', false); $('answerError').textContent = ''; show('continueAnywayBtn', false); setBusy(true); try { const d = await publicApi('/api/next-question', { checkpointId: cp.id, projectType: session.projectType, projectDescription: session.projectDescription, sessionDetails: session, history: history() }); if (d.complete) { show('checkpointDone', true); $('checkpointNote').value = session.checkpointNotes?.[cp.id] || ''; $('progressBar').style.width = `${((session.checkpointIndex + 1) / 6) * 100}%`; save(); } else { pending = { question: d.question, targetItemIds: d.targetItemIds }; currentFollowUpCount = 0; addBubble('ai', d.question); renderSuggestions(d.suggestedAnswers || []); show('answerArea', true); $('answerLabel').textContent = 'Capture the client’s answer'; $('answerInput').value = ''; $('answerInput').focus(); save(); } } catch (e) { $('answerError').textContent = e.message + ' Use “Retry / refresh” above to try again.'; show('answerArea', true); show('continueAnywayBtn', false); } finally { setBusy(false); } }
-    async function startSession(restore = false) {
-      if (!restore) { const d = detailsFromForm(); for (const k of ['clientName', 'companyName', 'contactName', 'contactEmail', 'projectType']) if (!d[k]) { $('setupError').textContent = 'Please complete all five session details.'; return; } if (!$('contactEmail').checkValidity()) { $('setupError').textContent = 'Please enter a valid contact email.'; return; } if (d.visibility === 'team' && !d.team_id) { $('setupError').textContent = 'Choose a team before sharing this session.'; return; } const initial = { ...d, projectName: d.projectName || '', checkpointIndex: 0, maxCheckpointIndex: 0, checkpointNotes: {}, answers: [{ checkpointId: 'contact', question: 'Contact person (session detail)', answer: d.contactName, status: 'answered', coveredItemIds: ['contact_person'] }, { checkpointId: 'contact', question: 'Contact email (session detail)', answer: d.contactEmail, status: 'answered', coveredItemIds: ['contact_email'] }, { checkpointId: 'contact', question: 'Company (session detail)', answer: d.companyName, status: 'answered', coveredItemIds: ['company'] }], followUpCounts: {}, createdAt: new Date().toISOString(), visibility: d.visibility || 'private', team_id: d.team_id || null }; const created = await api('/api/sessions', initial); session = normalizeSession(created.session || created); if (!session.id) throw new Error('The session API did not return a session ID.'); } else { detailsFields.forEach(k => $(k).value = session[k] || ''); $('sessionVisibility').value = session.visibility || 'private'; $('sessionTeam').value = session.team_id || ''; }
-      session.maxCheckpointIndex = Math.max(session.maxCheckpointIndex || 0, session.checkpointIndex); session.checkpointNotes = session.checkpointNotes || {}; show('setup', false); show('workspace', true); show('review', false); setTab('discovery'); await askNext();
-    }
-    function markCurrentAs(status, reason = '') { const entry = { checkpointId: checkpoint().id, question: pending.question, answer: $('answerInput').value.trim(), status, reason, mainPoint: $('answerInput').value.trim(), coveredItemIds: pending.targetItemIds, handledItemIds: pending.targetItemIds, needsReview: status === 'unknown' }; session.validationPassed = false; session.answers.push(entry); save(); addBubble('user', entry.answer || `Marked ${status}.`, status === 'unknown' ? `Reason: ${reason}` : ''); pending = null; $('answerInput').value = ''; show('answerArea', false); askNext(); }
-    async function submitAnswer() {
-      session.validationPassed = false; const answer = $('answerInput').value.trim(); if (!answer) { $('answerError').textContent = 'Please enter the client’s answer first.'; return; } if (!pending) return; $('answerError').textContent = ''; setBusy(true); try {
-        const d = await publicApi('/api/evaluate-dynamic-answer', { checkpointId: checkpoint().id, question: pending.question, answer, projectType: session.projectType, projectDescription: session.projectDescription, sessionDetails: session, history: history(), targetItemIds: pending.targetItemIds, followUpCounts: session.followUpCounts }); const ev = d.evaluation; addBubble('user', answer); addBubble('ai', ev.assessment || 'Answer reviewed.', ev.contradictions?.length ? `Potential contradiction: ${ev.contradictions.join('; ')}` : ''); const covered = ev.coveredItemIds || []; if (ev.sufficient || covered.length === pending.targetItemIds.length) { const disposition = ev.disposition || 'answered'; session.answers.push({ checkpointId: checkpoint().id, question: pending.question, answer, status: disposition, reason: ev.reason || '', mainPoint: ev.mainPoint || answer, coveredItemIds: covered.length ? covered : pending.targetItemIds, handledItemIds: pending.targetItemIds, evaluation: ev, needsReview: Boolean(ev.needsReview || ev.fallback) }); session.validationPassed = false; pending = null; $('answerInput').value = ''; save(); show('answerArea', false); await askNext(); return; }
-        const targetIds = pending.targetItemIds; const maxReached = targetIds.every(id => (session.followUpCounts[id] || 0) >= 2); if (!maxReached && ev.followUpQuestion) { targetIds.forEach(id => session.followUpCounts[id] = (session.followUpCounts[id] || 0) + 1); const entry = { checkpointId: checkpoint().id, question: pending.question, answer, status: 'answered', coveredItemIds: covered, handledItemIds: [], mainPoint: ev.mainPoint || answer, evaluation: ev, followUpQuestion: ev.followUpQuestion }; session.answers.push(entry); pending = { question: ev.followUpQuestion, targetItemIds: targetIds.filter(id => !covered.includes(id)), isFollowUp: true, parentEntry: entry }; currentFollowUpCount++; $('answerInput').value = ''; $('answerLabel').textContent = 'Answer the follow-up question'; renderSuggestions([]); addBubble('ai', ev.followUpQuestion, `Follow-up ${Math.max(...targetIds.map(id => session.followUpCounts[id]))} of 2 for the targeted checklist item(s)`); save(); } else { const entry = { checkpointId: checkpoint().id, question: pending.question, answer, status: 'answered', coveredItemIds: covered, handledItemIds: targetIds, mainPoint: ev.mainPoint || answer, evaluation: ev, needsReview: true }; session.answers.push(entry); pending = null; $('answerInput').value = ''; save(); show('answerArea', false); await askNext(); }
-      } catch (e) { $('answerError').textContent = e.message + ' Your answer has not been discarded. Retry, or continue with it flagged for review.'; show('continueAnywayBtn', true); } finally { setBusy(false); }
-    }
-    async function submitFollowUp() { session.validationPassed = false; const answer = $('answerInput').value.trim(); if (!answer) { $('answerError').textContent = 'Please enter a follow-up answer.'; return; } const old = pending; setBusy(true); try { const d = await publicApi('/api/evaluate-dynamic-answer', { checkpointId: checkpoint().id, question: old.question, answer, projectType: session.projectType, projectDescription: session.projectDescription, sessionDetails: session, history: history(), targetItemIds: old.targetItemIds, followUpCounts: session.followUpCounts }); const ev = d.evaluation; addBubble('user', answer); addBubble('ai', ev.assessment || 'Follow-up reviewed.'); old.parentEntry.followUpAnswer = answer; old.parentEntry.followUpMainPoint = ev.mainPoint || answer; old.parentEntry.evaluation = ev; if (['unknown', 'delegated'].includes(ev.disposition)) { old.parentEntry.status = ev.disposition; old.parentEntry.reason = ev.reason || answer; old.parentEntry.needsReview = ev.disposition === 'unknown'; } old.parentEntry.coveredItemIds = [...new Set([...(old.parentEntry.coveredItemIds || []), ...(ev.coveredItemIds || [])])]; old.parentEntry.mainPoint = ev.mainPoint || old.parentEntry.mainPoint || answer; old.parentEntry.needsReview = Boolean(old.parentEntry.needsReview || ev.needsReview || ev.fallback); if (old.parentEntry.needsReview) old.parentEntry.handledItemIds = old.targetItemIds; if (ev.sufficient || old.targetItemIds.every(id => (ev.coveredItemIds || []).includes(id))) { pending = null; $('answerInput').value = ''; save(); show('answerArea', false); await askNext(); } else { const hitLimit = old.targetItemIds.every(id => (session.followUpCounts[id] || 0) >= 2); if (!hitLimit && ev.followUpQuestion) { old.targetItemIds.forEach(id => session.followUpCounts[id] = (session.followUpCounts[id] || 0) + 1); pending = { ...old, question: ev.followUpQuestion }; renderSuggestions([]); addBubble('ai', ev.followUpQuestion, 'Final allowed follow-up'); $('answerInput').value = ''; save(); } else { old.parentEntry.needsReview = true; old.parentEntry.handledItemIds = old.targetItemIds; pending = null; $('answerInput').value = ''; save(); show('answerArea', false); await askNext(); } } } catch (e) { $('answerError').textContent = e.message + ' Your answer has not been discarded. Retry, or continue with it flagged for review.'; show('continueAnywayBtn', true); } finally { setBusy(false); } }
-    function preview() { show('workspace', false); show('review', true); const host = $('reviewContent'); host.innerHTML = ''; const summary = document.createElement('div'); summary.className = 'rounded-xl soft p-4 text-sm'; summary.innerHTML = `<b>${escapeHtml(session.projectName || `${session.companyName} - ${session.projectType}`)}</b><br>${escapeHtml(session.clientName)} · ${escapeHtml(session.companyName)}<br>${escapeHtml(session.contactName)} · ${escapeHtml(session.contactEmail)}<br>Project type: ${escapeHtml(session.projectType)}`; host.appendChild(summary); config.checkpoints.forEach(cp => { const section = document.createElement('section'); section.innerHTML = `<h3 class="font-bold text-lg mb-3">${escapeHtml(cp.title)}</h3>`; const entries = session.answers.filter(a => a.checkpointId === cp.id); if (!entries.length) section.innerHTML += '<p class="text-sm muted">No answers recorded.</p>'; entries.forEach(a => { const box = document.createElement('div'); box.className = 'border borderline rounded-lg p-3 mb-3 text-sm'; const flag = a.status === 'unknown' ? 'CLIENT DOES NOT KNOW YET' : a.status === 'delegated' ? 'DECISION DELEGATED TO DELIVERY TEAM' : a.status === 'accepted' ? 'ACCEPTED AS-IS' : a.needsReview ? 'NEEDS REVIEW' : ''; box.innerHTML = `<div class="font-semibold">${escapeHtml(a.question)}</div><div class="mt-2 chat">${escapeHtml(a.answer)}</div>${a.mainPoint ? `<div class="mt-2 text-xs muted"><b>Main point captured:</b> ${escapeHtml(a.mainPoint)}</div>` : ''}${a.followUpQuestion ? `<div class="mt-2 text-blue-700">Follow-up: ${escapeHtml(a.followUpQuestion)}</div><div>${escapeHtml(a.followUpAnswer || '')}</div>` : ''}${a.reason ? `<div class="mt-2">Reason: ${escapeHtml(a.reason)}</div>` : ''}${flag ? `<div class="mt-2 font-bold text-amber-700">⚑ ${flag}</div>` : ''}${a.evaluation?.contradictions?.length ? `<div class="mt-2 text-red-700">Potential contradiction: ${escapeHtml(a.evaluation.contradictions.join('; '))}</div>` : ''}`; section.appendChild(box); }); const note = session.checkpointNotes?.[cp.id]; if (note) { const noteBox = document.createElement('div'); noteBox.className = 'rounded-lg soft p-3 text-sm'; noteBox.innerHTML = `<b>Additional checkpoint notes</b><div class="mt-1 chat">${escapeHtml(note)}</div>`; section.appendChild(noteBox); } host.appendChild(section); }); }
-    async function runFinalValidation() {
-      const btn = $('validateBtn'); btn.disabled = true; btn.textContent = 'Checking completeness…'; $('validationResults').classList.remove('hidden'); $('validationResults').textContent = 'Checking required information, unresolved items and possible contradictions…';
-      try {
-        const result = await publicApi('/api/validate-intake', session); session.validationPassed = true; session.validationReport = result; save();
-        const warnings = result.warnings || []; const missing = result.missingRequired || []; let html = '<div class="font-bold text-emerald-700">Validation review completed. You may submit the ticket even if warnings remain.</div>';
-        if (missing.length) html += '<div class="mt-3"><b>Important details still missing or unverified:</b><ul class="list-disc pl-5 mt-1">' + missing.map(x => `<li>${escapeHtml(x.label)}</li>`).join('') + '</ul></div>';
-        if (warnings.length) html += '<div class="mt-3 text-amber-700"><b>Warnings for the project team:</b><ul class="list-disc pl-5">' + warnings.map(x => `<li>${escapeHtml(x)}</li>`).join('') + '</ul></div>';
-        if (!warnings.length && !missing.length) html += '<p class="mt-2">No outstanding warnings were identified.</p>';
-        html += '<p class="mt-3 text-sm font-semibold">Submitting will include these warnings in the Zendesk ticket for follow-up.</p>';
-        $('validationResults').innerHTML = html; $('submitTicketBtn').disabled = false;
-      } catch (e) { session.validationPassed = false; $('submitTicketBtn').disabled = true; $('validationResults').textContent = e.message + ' Please retry the final validation review.'; }
-      finally { btn.disabled = false; btn.textContent = 'Run final completeness check'; }
-    }
-    $('themeBtn').onclick = () => { document.body.classList.toggle('dark'); localStorage.setItem('sowTheme', document.body.classList.contains('dark') ? 'dark' : 'light'); }; if (localStorage.getItem('sowTheme') === 'dark') document.body.classList.add('dark');
-    $('startBtn').onclick = () => startSession(false); $('sendBtn').onclick = () => pending?.isFollowUp ? submitFollowUp() : submitAnswer();
-    $('unknownBtn').onclick = () => { if (!pending) return; const reason = prompt('Why does the client not know this yet?'); if (reason === null) return; markCurrentAs('unknown', reason.trim() || 'Client unable to confirm during this meeting.'); };
-    $('acceptBtn').onclick = () => { if (!pending) return; if (!confirm('Accept this answer as-is and flag it for project-team review?')) return; markCurrentAs('accepted'); };
-    $('checkpointNote').addEventListener('input', () => { if (!session) return; session.checkpointNotes = session.checkpointNotes || {}; session.checkpointNotes[checkpoint().id] = $('checkpointNote').value; session.validationPassed = false; save(); });
-    $('nextCheckpointBtn').onclick = async () => { session.checkpointNotes = session.checkpointNotes || {}; session.checkpointNotes[checkpoint().id] = $('checkpointNote').value.trim(); if (session.checkpointIndex >= 5) { save(); preview(); return; } session.checkpointIndex++; session.maxCheckpointIndex = Math.max(session.maxCheckpointIndex || 0, session.checkpointIndex); save(); await askNext(); };
-    $('backBtn').onclick = () => navigateToCheckpoint(session.checkpointIndex - 1);
-    $('refreshBtn').onclick = async () => { if (!session) return; if (pending) { $('answerError').textContent = 'Retrying the current answer…'; show('continueAnywayBtn', false); pending.isFollowUp ? await submitFollowUp() : await submitAnswer(); } else { await askNext(); } };
-    $('continueAnywayBtn').onclick = () => { if (!pending) return; const answer = $('answerInput').value.trim(); if (!answer) { $('answerError').textContent = 'Enter an answer before continuing.'; return; } const entry = { checkpointId: checkpoint().id, question: pending.question, answer, status: 'answered', coveredItemIds: [], handledItemIds: pending.targetItemIds, mainPoint: answer, needsReview: true, evaluation: { assessment: 'AI evaluation failed. Presales continued manually; project team review required.', contradictions: [] } }; if (pending.isFollowUp && pending.parentEntry) { pending.parentEntry.followUpAnswer = answer; pending.parentEntry.followUpMainPoint = answer; pending.parentEntry.needsReview = true; pending.parentEntry.handledItemIds = pending.targetItemIds; } else session.answers.push(entry); addBubble('user', answer, 'Saved without AI evaluation — needs review'); pending = null; session.validationPassed = false; $('answerInput').value = ''; show('answerArea', false); show('continueAnywayBtn', false); save(); askNext(); };
-    $('validateBtn').onclick = runFinalValidation; $('saveBtn').onclick = () => { save(); alert('Saving progress to your account…'); }; $('reviewBtn').onclick = preview; $('closeReviewBtn').onclick = $('backToSessionBtn').onclick = () => { show('review', false); show('workspace', true); };
-    $('submitTicketBtn').onclick = async () => { if (!session.validationPassed) { $('submitStatus').textContent = 'Run the final validation review before submitting. Warnings will not prevent submission.'; return; } const btn = $('submitTicketBtn'); btn.disabled = true; $('submitStatus').textContent = 'Submitting to Zendesk…'; try { const r = await api('/api/submit-intake', { sessionId: session.id }); $('submitStatus').innerHTML = `Submitted successfully. Ticket #${r.ticketId}. <a class="underline" target="_blank" rel="noopener" href="${escapeHtml(r.zendeskUrl)}">Open Zendesk ticket</a>`; session.status = 'submitted'; await api(`/api/sessions/${session.id}`, { status: 'submitted' }, 'PATCH'); btn.classList.add('hidden'); } catch (e) { $('submitStatus').textContent = e.message; btn.disabled = false; } };
+      function normalizeSession(s = {}) {
+        return {
+          ...s,
+          id: s.id ?? s.session_id,
+          clientName: s.clientName ?? s.client_name,
+          companyName: s.companyName ?? s.company_name,
+          contactName: s.contactName ?? s.contact_name,
+          contactEmail: s.contactEmail ?? s.contact_email,
+          projectName: s.projectName ?? s.project_name,
+          projectType: s.projectType ?? s.project_type,
+          projectDescription: s.projectDescription ?? s.project_description,
+          checkpointIndex: s.checkpointIndex ?? s.checkpoint_index ?? 0,
+          maxCheckpointIndex: s.maxCheckpointIndex ?? s.max_checkpoint_index ?? 0,
+          checkpointNotes: s.checkpointNotes ?? s.checkpoint_notes ?? {},
+          followUpCounts: s.followUpCounts ?? s.follow_up_counts ?? {},
+          team_id: s.team_id ?? s.teamId,
+          answers: (s.answers || []).map(normalizeAnswer),
+        };
+      }
+      function checkpoint() {
+          const checkpoints = config?.checkpoints || [];
 
-    function formatDate(value) { if (!value) return '—'; const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString(); }
-    function statusLabel(status) { return ({ draft: 'Draft', in_progress: 'In progress', review: 'Needs review', submitted: 'Submitted', completed: 'Completed', cancelled: 'Cancelled' })[status] || status || 'Unknown'; }
-    function sessionCard(item, admin = false) { const title = item.project_name || item.projectName || `${item.company_name || item.companyName || 'Untitled company'} · ${item.project_type || item.projectType || 'Project'}`; const owner = item.owner?.full_name || item.owner_name || item.owner_email || item.profiles?.full_name || 'Employee'; const status = item.status || 'in_progress'; const progress = Number(item.checkpoint_index ?? item.checkpointIndex ?? 0); return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || 'Company not set')} · ${escapeHtml(item.client_name || item.clientName || 'Client not set')}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ''}</p>` : ''}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || 'private')}</span>${!admin && ['draft', 'in_progress', 'review'].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, progress / 6 * 100))}%"></div></div></div></article>`; }
-    async function loadMySessions() { const host = $('mySessionsList'); host.innerHTML = '<div class="panel rounded-xl p-5 muted text-sm">Loading your sessions…</div>'; try { const d = await api('/api/sessions', undefined, 'GET'); mySessionsCache = d.sessions || []; const active = mySessionsCache.filter(x => ['draft', 'in_progress', 'review'].includes(x.status)); $('myActiveCount').textContent = active.length; $('mySubmittedCount').textContent = mySessionsCache.filter(x => ['submitted', 'completed'].includes(x.status)).length; $('mySharedCount').textContent = mySessionsCache.filter(x => x.visibility === 'team' && x.owner_id !== currentUser.id).length; host.innerHTML = mySessionsCache.length ? mySessionsCache.map(x => sessionCard(x, false)).join('') : '<div class="panel rounded-xl p-6 muted text-sm">You do not have any saved discovery sessions yet.</div>'; } catch (e) { host.innerHTML = ''; $('mySessionsError').textContent = e.message; } }
-    async function loadAllSessions() { const host = $('allSessionsList'); host.innerHTML = '<div class="panel rounded-xl p-5 muted text-sm">Loading session tracking…</div>'; try { const d = await api('/api/admin/sessions', undefined, 'GET'); allSessionsCache = d.sessions || []; $('allTotalCount').textContent = allSessionsCache.length; $('allActiveCount').textContent = allSessionsCache.filter(x => ['draft', 'in_progress'].includes(x.status)).length; $('allSubmittedCount').textContent = allSessionsCache.filter(x => ['submitted', 'completed'].includes(x.status)).length; $('allReviewCount').textContent = allSessionsCache.filter(x => x.status === 'review' || x.needs_review).length; renderAllSessions(); } catch (e) { host.innerHTML = ''; $('allSessionsError').textContent = e.message; } }
-    function renderAllSessions() { const q = $('trackingSearch').value.trim().toLowerCase(), status = $('trackingStatus').value, team = $('trackingTeam').value; const filtered = allSessionsCache.filter(x => { const text = [x.project_name, x.projectName, x.company_name, x.companyName, x.owner?.full_name, x.owner_name, x.owner_email, x.team?.name].join(' ').toLowerCase(); return (!q || text.includes(q)) && (status === 'all' || x.status === status) && (team === 'all' || String(x.team_id || '') === team); }); $('allSessionsList').innerHTML = filtered.length ? filtered.map(x => sessionCard(x, true)).join('') : '<div class="panel rounded-xl p-6 muted text-sm">No sessions match these filters.</div>'; }
-    async function openSavedSession(id) { try { const d = await api(`/api/sessions/${id}`, undefined, 'GET'); session = normalizeSession(d.session || d); session.checkpointNotes = session.checkpointNotes || {}; session.followUpCounts = session.followUpCounts || {}; if (session.status === 'submitted' || session.status === 'completed') { alert('This session is read-only because it has already been submitted.'); return; } const claim = await api(`/api/sessions/${id}/claim`, {}, 'POST'); if (claim.session) session = claim.session; detailsFields.forEach(k => $(k).value = session[k] || ''); show('setup', false); show('workspace', true); show('review', false); setTab('discovery'); await askNext(); } catch (e) { alert('Unable to open this session: ' + e.message); } }
-    async function loadTeams() { try { const d = await api(currentRole === 'admin' ? '/api/admin/teams' : '/api/teams', undefined, 'GET'); const teams = d.teams || []; for (const id of ['employeeTeam', 'trackingTeam', 'sessionTeam']) { const select = $(id); if (!select) continue; const keep = select.value; select.innerHTML = id === 'trackingTeam' ? '<option value="all">All teams</option>' : id === 'sessionTeam' ? '<option value="">Select a team</option>' : '<option value="">No team assigned</option>'; teams.forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; select.appendChild(o); }); select.value = keep; } } catch (e) { console.warn('Teams could not be loaded:', e.message); } }
-    async function loadEmployees() { const host = $('employeesList'); host.innerHTML = '<p class="muted text-sm">Loading employees…</p>'; try { const d = await api('/api/admin/employees', undefined, 'GET'); const employees = d.employees || []; host.innerHTML = employees.length ? employees.map(u => `<div class="flex flex-wrap items-center justify-between gap-2 border-b borderline py-3"><div><div class="font-medium">${escapeHtml(u.full_name || u.fullName || 'Unnamed employee')}</div><div class="muted text-xs">${escapeHtml(u.email || '')} · ${escapeHtml(u.team_name || 'No team')}</div></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(u.role || 'presales')}</span><span class="text-xs ${u.is_active === false ? 'text-red-600' : 'text-emerald-700'}">${u.is_active === false ? 'Inactive' : 'Active'}</span></div></div>`).join('') : '<p class="muted text-sm">No employees found.</p>'; } catch (e) { host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`; } }
-    async function inviteEmployee(e) { e.preventDefault(); const btn = $('inviteEmployeeBtn'), status = $('inviteEmployeeStatus'); btn.disabled = true; status.textContent = 'Sending invitation…'; try { await api('/api/admin/invites', { email: $('employeeEmail').value.trim(), fullName: $('employeeFullName').value.trim(), role: $('employeeRole').value, teamId: $('employeeTeam').value || null }); status.textContent = 'Invitation sent successfully.'; $('inviteEmployeeForm').reset(); await loadEmployees(); } catch (err) { status.textContent = err.message; } finally { btn.disabled = false; } }
-    async function showAuthenticatedApp() { const { data: { session: authSession } } = await supabaseClient.auth.getSession(); if (!authSession) { show('loginScreen', true); show('appScreen', false); show('logoutBtn', false); show('userBadge', false); return; } try { const me = await api('/api/me', undefined, 'GET'); currentUser = { ...(me.user || me), ...(me.profile || {}) }; currentRole = me.role || me.profile?.role || currentUser.role; if (!['admin', 'presales'].includes(currentRole)) throw new Error('Your account does not have an application role. Contact an administrator.'); show('loginScreen', false); show('appScreen', true); show('logoutBtn', true); show('userBadge', true); $('userBadge').textContent = currentUser.full_name || currentUser.email || authSession.user.email; $('headerSubtitle').textContent = currentRole === 'admin' ? 'Administrator console · Employee and session oversight' : 'AI-guided discovery for live client meetings'; if (currentRole === 'admin') { show('adminTabs', true); show('employeeTabs', false); setTab('employees'); await loadTeams(); await Promise.all([loadEmployees(), loadAllSessions()]); } else { show('employeeTabs', true); show('adminTabs', false); setTab('discovery'); await loadTeams(); await loadMySessions(); const active = await api('/api/sessions/active', undefined, 'GET'); if (active.session) { session = normalizeSession(active.session); detailsFields.forEach(k => $(k).value = session[k] || ''); show('setup', false); show('workspace', true); await askNext(); } else { session = null; show('setup', true); show('workspace', false); show('review', false); } } } catch (e) { show('loginScreen', true); show('appScreen', false); $('loginError').textContent = e.message; } }
-    $('loginForm').addEventListener('submit', async e => { e.preventDefault(); const btn = $('loginBtn'); btn.disabled = true; $('loginError').textContent = 'Signing in…'; try { const { error } = await supabaseClient.auth.signInWithPassword({ email: $('loginEmail').value.trim(), password: $('loginPassword').value }); if (error) throw error; $('loginError').textContent = ''; await showAuthenticatedApp(); } catch (err) { $('loginError').textContent = err.message || 'Unable to sign in.'; } finally { btn.disabled = false; } });
-    $('logoutBtn').onclick = async () => { await supabaseClient.auth.signOut(); session = null; currentUser = null; currentRole = null; show('appScreen', false); show('loginScreen', true); show('logoutBtn', false); show('userBadge', false); $('loginPassword').value = ''; };
-    $('setInvitePasswordBtn').onclick = async () => { try { const password = $('invitePassword').value; if (password.length < 8) throw new Error('Use at least 8 characters.'); const { error } = await supabaseClient.auth.updateUser({ password }); if (error) throw error; show('invitePasswordPanel', false); $('loginForm').classList.remove('hidden'); await showAuthenticatedApp(); } catch (e) { $('inviteError').textContent = e.message; } };
-    $('discoveryTabBtn').onclick = () => setTab('discovery'); $('sessionManagerTabBtn').onclick = async () => { setTab('manager'); await loadMySessions(); }; $('newEmployeesTabBtn').onclick = () => setTab('employees'); $('sessionTrackingTabBtn').onclick = async () => { setTab('tracking'); await loadAllSessions(); };
-    $('closeSessionDetailBtn').onclick = () => show('sessionDetailPanel', false); $('sessionDetailPanel').addEventListener('click', e => { if (e.target.id === 'sessionDetailPanel') show('sessionDetailPanel', false); }); $('refreshMySessionsBtn').onclick = loadMySessions; $('refreshAllSessionsBtn').onclick = loadAllSessions; $('refreshEmployeesBtn').onclick = loadEmployees; $('inviteEmployeeForm').addEventListener('submit', inviteEmployee); $('sessionVisibility').addEventListener('change', () => { show('sessionTeamWrap', $('sessionVisibility').value === 'team'); }); $('trackingSearch').addEventListener('input', renderAllSessions); $('trackingStatus').addEventListener('change', renderAllSessions); $('trackingTeam').addEventListener('change', renderAllSessions);
-    document.addEventListener('click', e => { const resume = e.target.closest('[data-resume-session]'); const view = e.target.closest('[data-view-session]'); if (resume) openSavedSession(resume.dataset.resumeSession); if (view) openSessionDetail(view.dataset.viewSession); });
-    async function openSessionDetail(id) { try { const d = await api(`/api/sessions/${id}`, undefined, 'GET'); const s = normalizeSession(d.session || d); $('detailTitle').textContent = s.project_name || s.projectName || s.company_name || s.companyName || 'Discovery session'; $('detailMeta').textContent = `${s.company_name || s.companyName || 'Company'} · ${s.owner?.full_name || s.owner_name || 'Employee'} · ${statusLabel(s.status)} · Updated ${formatDate(s.updated_at || s.updatedAt)}`; const answers = s.answers || []; $('detailAnswers').innerHTML = answers.length ? answers.map(a => `<article class="border borderline rounded-xl p-4"><div class="text-xs uppercase tracking-wide muted">${escapeHtml(a.checkpoint_id || a.checkpointId || 'Checkpoint')} · ${escapeHtml(a.status || 'answered')}</div><div class="font-semibold mt-1">${escapeHtml(a.question || '')}</div><p class="chat text-sm mt-2">${escapeHtml(a.answer || '')}</p>${a.follow_up_question || a.followUpQuestion ? `<div class="mt-3 text-sm"><b>Follow-up:</b> ${escapeHtml(a.follow_up_question || a.followUpQuestion)}<p class="chat mt-1">${escapeHtml(a.follow_up_answer || a.followUpAnswer || '')}</p></div>` : ''}${a.needs_review || a.needsReview ? '<div class="mt-2 text-xs font-semibold text-amber-700">Needs review</div>' : ''}</article>`).join('') : '<p class="muted text-sm">No answers have been recorded.</p>'; show('sessionDetailPanel', true); } catch (e) { alert('Unable to view session: ' + e.message); } }
-    (async () => { try { const configResponse = await fetch('/api/public-config'); const publicConfig = await configResponse.json(); if (!configResponse.ok || !publicConfig.supabaseUrl || !publicConfig.supabasePublishableKey) throw new Error('Supabase browser configuration is unavailable. Check the server .env settings.'); supabaseClient = window.supabase.createClient(publicConfig.supabaseUrl, publicConfig.supabasePublishableKey); const r = await fetch('/api/intake-config'); config = await r.json(); if (!config.checkpoints) throw new Error('Config unavailable'); const inviteLink = location.hash.includes('type=invite'); if (inviteLink) { show('loginScreen', true); show('appScreen', false); show('invitePasswordPanel', true); $('loginForm').classList.add('hidden'); } else { show('invitePasswordPanel', false); $('loginForm').classList.remove('hidden'); await showAuthenticatedApp(); } supabaseClient.auth.onAuthStateChange(async (event) => { if (event === 'SIGNED_OUT') { session = null; currentUser = null; currentRole = null; show('appScreen', false); show('loginScreen', true); show('logoutBtn', false); show('userBadge', false); } }); } catch (e) { $('loginError').textContent = 'Unable to initialize the application: ' + e.message; } })();
-  </script>
-</body>
+          if (!checkpoints.length) {
+            throw new Error('Discovery checkpoint configuration is unavailable.');
+          }
 
+          let index = Number(session?.checkpointIndex);
+
+          if (!Number.isInteger(index)) {
+            index = 0;
+          }
+
+          index = Math.max(0, Math.min(index, checkpoints.length - 1));
+
+          session.checkpointIndex = index;
+
+          return checkpoints[index];
+        }
+      function history() {
+        return (session.answers || []).filter((a) => a.checkpointId === checkpoint().id);
+      }
+      function addBubble(kind, text, extra = "") {
+        const div = document.createElement("div");
+        div.className = kind === "ai" ? "rounded-xl bg-slate-100 text-slate-800 p-4 chat soft" : "ml-4 sm:ml-12 rounded-xl bg-blue-50 text-blue-950 p-4 chat";
+        div.innerHTML = `<div class="text-xs font-bold uppercase tracking-wide mb-1">${kind === "ai" ? "Discovery assistant" : "Presales response"}</div><div>${escapeHtml(text)}</div>${extra ? `<div class="mt-2 text-xs font-semibold">${escapeHtml(extra)}</div>` : ""}`;
+        $("conversation").appendChild(div);
+      }
+      async function withButtonLoading(button, loadingLabel, task) {
+        if (!button || button.disabled) return;
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        button.innerHTML = `<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>${escapeHtml(loadingLabel)}</span>`;
+        button.classList.add("inline-flex", "items-center", "justify-center", "gap-2");
+        try {
+          return await task();
+        } finally {
+          button.innerHTML = originalHtml;
+          button.disabled = button.id === "setInvitePasswordBtn"
+            ? !updateInvitePasswordFeedback()
+            : false;
+          button.removeAttribute("aria-busy");
+        }
+      }
+
+      async function api(url, body, method = "POST") {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 45000);
+        try {
+          const {
+            data: { session: authSession },
+          } = await supabaseClient.auth.getSession();
+          if (!authSession) throw new Error("Your login session has expired. Please sign in again.");
+          const headers = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authSession.access_token}`,
+          };
+          const options = { method, headers, signal: controller.signal };
+          if (body !== undefined) options.body = JSON.stringify(body);
+          const r = await fetch(url, options);
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || d.success === false) throw new Error(d.error || "Request failed.");
+          return d;
+        } catch (e) {
+          if (e.name === "AbortError") throw new Error("The request took too long. Please retry.");
+          throw e;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      function save() {
+        if (!session?.id) return;
+        const autosaveStatus = $("autosaveStatus");
+        if (autosaveStatus) autosaveStatus.textContent = "Saving changes…";
+        session.updatedAt = new Date().toISOString();
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(async () => {
+          try {
+            const metadata = {
+              client_name: session.clientName,
+              company_name: session.companyName,
+              contact_name: session.contactName,
+              contact_email: session.contactEmail,
+              project_name: session.projectName,
+              project_type: session.projectType,
+              project_description: session.projectDescription,
+              checkpoint_index: session.checkpointIndex,
+              max_checkpoint_index: session.maxCheckpointIndex,
+              checkpoint_notes: session.checkpointNotes,
+              follow_up_counts: session.followUpCounts,
+              status: session.status,
+              visibility: session.visibility,
+              team_id: session.team_id || null,
+            };
+            await api(`/api/sessions/${session.id}`, metadata, "PATCH");
+            for (let i = 0; i < (session.answers || []).length; i++) {
+              await api(`/api/sessions/${session.id}/answers`, { ...session.answers[i], sequence_number: i + 1 }, "POST");
+            }
+            if (autosaveStatus) autosaveStatus.textContent = "All changes saved";
+          } catch (e) {
+            if (autosaveStatus) autosaveStatus.textContent = "Autosave failed — retrying on next change";
+            console.error("Session autosave failed:", e);
+            const el = $("setupError");
+            if (el) el.textContent = "Autosave failed: " + e.message;
+          }
+        }, 500);
+      }
+      function setTab(which) {
+        const isAdmin = currentRole === "admin";
+        show("employeeDiscoveryTab", !isAdmin && which === "discovery");
+        show("sessionManagerTab", !isAdmin && which === "manager");
+        show("adminEmployeesTab", isAdmin && which === "employees");
+        show("adminSessionTrackingTab", isAdmin && which === "tracking");
+        for (const [id, active] of [
+          ["discoveryTabBtn", which === "discovery"],
+          ["sessionManagerTabBtn", which === "manager"],
+          ["newEmployeesTabBtn", which === "employees"],
+          ["sessionTrackingTabBtn", which === "tracking"],
+        ]) {
+          const b = $(id);
+          if (b) {
+            b.classList.toggle("tab-active", active);
+            b.classList.toggle("soft", !active);
+          }
+        }
+      }
+      function renderPills() {
+        const host = $("checkpointPills");
+        host.innerHTML = "";
+        config.checkpoints.forEach((cp, i) => {
+          const b = document.createElement("button");
+          const reachable = i <= (session.maxCheckpointIndex ?? session.checkpointIndex);
+          b.type = "button";
+          b.disabled = !reachable;
+          b.className =
+            "text-xs rounded-full px-3 py-1 " +
+            (i < session.checkpointIndex
+              ? "bg-emerald-100 text-emerald-800"
+              : i === session.checkpointIndex
+                ? "bg-blue-100 text-blue-800"
+                : "bg-slate-100 text-slate-500") +
+            (reachable ? " cursor-pointer hover:ring-2 hover:ring-blue-300" : " cursor-not-allowed");
+          b.textContent = `${i + 1}. ${cp.title}`;
+          if (reachable) b.onclick = () => navigateToCheckpoint(i);
+          host.appendChild(b);
+        });
+      }
+      function renderHeader() {
+        const cp = checkpoint();
+        $("checkpointTitle").textContent = cp.title;
+        $("checkpointCount").textContent = `Checkpoint ${session.checkpointIndex + 1} of 6`;
+        $("checkpointHint").textContent = `${cp.items.length} information areas · AI-generated questions`;
+        show("backBtn", session.checkpointIndex > 0);
+        $("progressBar").style.width = `${(session.checkpointIndex / 6) * 100}%`;
+        renderPills();
+      }
+      async function publicApi(url, body) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 45000);
+        try {
+          const r = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || !d.success) throw new Error(d.error || "Request failed.");
+          return d;
+        } catch (e) {
+          if (e.name === "AbortError") throw new Error("The request took too long. Your answer is still here—please retry.");
+          throw e;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      function setBusy(on, message = "Reviewing the answer and preparing the next question…") {
+        $("busyMessage").textContent = message;
+        show("busy", on);
+        $("sendBtn").disabled = on;
+        $("unknownBtn").disabled = on;
+        $("acceptBtn").disabled = on;
+        $("refreshBtn").disabled = on;
+        $("busy").setAttribute("aria-busy", String(on));
+      }
+      function renderExistingHistory() {
+        $("conversation").innerHTML = "";
+        history().forEach((a) => {
+          addBubble("ai", a.question, a.status === "unknown" ? "Flagged: client does not know yet" : a.status === "accepted" ? "Flagged: accepted as-is" : "");
+          if (a.answer) addBubble("user", a.answer);
+          if (a.followUpQuestion) {
+            addBubble("ai", a.followUpQuestion, "Follow-up");
+            if (a.followUpAnswer) addBubble("user", a.followUpAnswer);
+          }
+        });
+      }
+      function renderSuggestions(items = []) {
+        const host = $("suggestionButtons");
+        host.innerHTML = "";
+        $("suggestedAnswers").classList.toggle("hidden", !items.length);
+        items.forEach((value) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "suggestion-chip text-sm rounded-xl px-4 py-3";
+          b.textContent = value;
+          b.title = "Insert this example into the answer field";
+          b.onclick = () => {
+            $("answerInput").value = value;
+            $("answerInput").focus();
+          };
+          host.appendChild(b);
+        });
+      }
+      async function navigateToCheckpoint(index) {
+        if (index < 0 || index > (session.maxCheckpointIndex ?? session.checkpointIndex)) return;
+        session.checkpointIndex = index;
+        pending = null;
+        save();
+        await askNext();
+      }
+      async function askNext() {
+        const cp = checkpoint();
+        renderHeader();
+        renderExistingHistory();
+        renderSuggestions([]);
+        show("checkpointDone", false);
+        show("answerArea", false);
+        $("answerError").textContent = "";
+        show("continueAnywayBtn", false);
+        setBusy(true, "Preparing your next discovery question…");
+        try {
+          const d = await publicApi("/api/next-question", {
+            checkpointId: cp.id,
+            projectType: session.projectType,
+            projectDescription: session.projectDescription,
+            sessionDetails: session,
+            history: history(),
+          });
+          if (d.complete) {
+            show("checkpointDone", true);
+            $("checkpointNote").value = session.checkpointNotes?.[cp.id] || "";
+            $("progressBar").style.width = `${((session.checkpointIndex + 1) / 6) * 100}%`;
+            save();
+          } else {
+            pending = { question: d.question, targetItemIds: d.targetItemIds };
+            currentFollowUpCount = 0;
+            addBubble("ai", d.question);
+            renderSuggestions(d.suggestedAnswers || []);
+            show("answerArea", true);
+            $("answerLabel").textContent = "Capture the client’s answer";
+            $("answerInput").value = "";
+            $("answerInput").focus();
+            save();
+          }
+        } catch (e) {
+          $("answerError").textContent = e.message + " Use “Retry / refresh” above to try again.";
+          show("answerArea", true);
+          show("continueAnywayBtn", false);
+        } finally {
+          setBusy(false);
+        }
+      }
+      async function startSession(restore = false) {
+        if (!restore) {
+          const d = detailsFromForm();
+          for (const k of ["clientName", "companyName", "contactName", "contactEmail", "projectType"])
+            if (!d[k]) {
+              $("setupError").textContent = "Please complete all five session details.";
+              return;
+            }
+          if (!$("contactEmail").checkValidity()) {
+            $("setupError").textContent = "Please enter a valid contact email.";
+            return;
+          }
+          if (d.visibility === "team" && !d.team_id) {
+            $("setupError").textContent = "Choose a team before sharing this session.";
+            return;
+          }
+          const initial = {
+            ...d,
+            projectName: d.projectName || "",
+            checkpointIndex: 0,
+            maxCheckpointIndex: 0,
+            checkpointNotes: {},
+            answers: [
+              {
+                checkpointId: "contact",
+                question: "Contact person (session detail)",
+                answer: d.contactName,
+                status: "answered",
+                coveredItemIds: ["contact_person"],
+              },
+              {
+                checkpointId: "contact",
+                question: "Contact email (session detail)",
+                answer: d.contactEmail,
+                status: "answered",
+                coveredItemIds: ["contact_email"],
+              },
+              {
+                checkpointId: "contact",
+                question: "Company (session detail)",
+                answer: d.companyName,
+                status: "answered",
+                coveredItemIds: ["company"],
+              },
+            ],
+            followUpCounts: {},
+            createdAt: new Date().toISOString(),
+            visibility: d.visibility || "private",
+            team_id: d.team_id || null,
+          };
+          const created = await api("/api/sessions", initial);
+          session = normalizeSession(created.session || created);
+          if (!session.id) throw new Error("The session API did not return a session ID.");
+        } else {
+          detailsFields.forEach((k) => ($(k).value = session[k] || ""));
+          $("sessionVisibility").value = session.visibility || "private";
+          $("sessionTeam").value = session.team_id || "";
+        }
+        session.maxCheckpointIndex = Math.max(session.maxCheckpointIndex || 0, session.checkpointIndex);
+        session.checkpointNotes = session.checkpointNotes || {};
+        show("setup", false);
+        show("workspace", true);
+        show("review", false);
+        setTab("discovery");
+        await askNext();
+      }
+      function markCurrentAs(status, reason = "") {
+        const entry = {
+          checkpointId: checkpoint().id,
+          question: pending.question,
+          answer: $("answerInput").value.trim(),
+          status,
+          reason,
+          mainPoint: $("answerInput").value.trim(),
+          coveredItemIds: pending.targetItemIds,
+          handledItemIds: pending.targetItemIds,
+          needsReview: status === "unknown",
+        };
+        session.validationPassed = false;
+        session.answers.push(entry);
+        save();
+        addBubble("user", entry.answer || `Marked ${status}.`, status === "unknown" ? `Reason: ${reason}` : "");
+        pending = null;
+        $("answerInput").value = "";
+        show("answerArea", false);
+        askNext();
+      }
+      async function submitAnswer() {
+        session.validationPassed = false;
+        const answer = $("answerInput").value.trim();
+        if (!answer) {
+          $("answerError").textContent = "Please enter the client’s answer first.";
+          return;
+        }
+        if (!pending) return;
+        $("answerError").textContent = "";
+        setBusy(true, "Reviewing the answer with AI…");
+        try {
+          const d = await publicApi("/api/evaluate-dynamic-answer", {
+            checkpointId: checkpoint().id,
+            question: pending.question,
+            answer,
+            projectType: session.projectType,
+            projectDescription: session.projectDescription,
+            sessionDetails: session,
+            history: history(),
+            targetItemIds: pending.targetItemIds,
+            followUpCounts: session.followUpCounts,
+          });
+          const ev = d.evaluation;
+          addBubble("user", answer);
+          addBubble("ai", ev.assessment || "Answer reviewed.", ev.contradictions?.length ? `Potential contradiction: ${ev.contradictions.join("; ")}` : "");
+          const covered = ev.coveredItemIds || [];
+          if (ev.sufficient || covered.length === pending.targetItemIds.length) {
+            const disposition = ev.disposition || "answered";
+            session.answers.push({
+              checkpointId: checkpoint().id,
+              question: pending.question,
+              answer,
+              status: disposition,
+              reason: ev.reason || "",
+              mainPoint: ev.mainPoint || answer,
+              coveredItemIds: covered.length ? covered : pending.targetItemIds,
+              handledItemIds: pending.targetItemIds,
+              evaluation: ev,
+              needsReview: Boolean(ev.needsReview || ev.fallback),
+            });
+            session.validationPassed = false;
+            pending = null;
+            $("answerInput").value = "";
+            save();
+            show("answerArea", false);
+            await askNext();
+            return;
+          }
+          const targetIds = pending.targetItemIds;
+          const maxReached = targetIds.every((id) => (session.followUpCounts[id] || 0) >= 2);
+          if (!maxReached && ev.followUpQuestion) {
+            targetIds.forEach((id) => (session.followUpCounts[id] = (session.followUpCounts[id] || 0) + 1));
+            const entry = {
+              checkpointId: checkpoint().id,
+              question: pending.question,
+              answer,
+              status: "answered",
+              coveredItemIds: covered,
+              handledItemIds: [],
+              mainPoint: ev.mainPoint || answer,
+              evaluation: ev,
+              followUpQuestion: ev.followUpQuestion,
+            };
+            session.answers.push(entry);
+            pending = {
+              question: ev.followUpQuestion,
+              targetItemIds: targetIds.filter((id) => !covered.includes(id)),
+              isFollowUp: true,
+              parentEntry: entry,
+            };
+            currentFollowUpCount++;
+            $("answerInput").value = "";
+            $("answerLabel").textContent = "Answer the follow-up question";
+            renderSuggestions([]);
+            addBubble(
+              "ai",
+              ev.followUpQuestion,
+              `Follow-up ${Math.max(...targetIds.map((id) => session.followUpCounts[id]))} of 2 for the targeted checklist item(s)`,
+            );
+            save();
+          } else {
+            const entry = {
+              checkpointId: checkpoint().id,
+              question: pending.question,
+              answer,
+              status: "answered",
+              coveredItemIds: covered,
+              handledItemIds: targetIds,
+              mainPoint: ev.mainPoint || answer,
+              evaluation: ev,
+              needsReview: true,
+            };
+            session.answers.push(entry);
+            pending = null;
+            $("answerInput").value = "";
+            save();
+            show("answerArea", false);
+            await askNext();
+          }
+        } catch (e) {
+          $("answerError").textContent = e.message + " Your answer has not been discarded. Retry, or continue with it flagged for review.";
+          show("continueAnywayBtn", true);
+        } finally {
+          setBusy(false);
+        }
+      }
+      async function submitFollowUp() {
+        session.validationPassed = false;
+        const answer = $("answerInput").value.trim();
+        if (!answer) {
+          $("answerError").textContent = "Please enter a follow-up answer.";
+          return;
+        }
+        const old = pending;
+        setBusy(true, "Reviewing your follow-up answer…");
+        try {
+          const d = await publicApi("/api/evaluate-dynamic-answer", {
+            checkpointId: checkpoint().id,
+            question: old.question,
+            answer,
+            projectType: session.projectType,
+            projectDescription: session.projectDescription,
+            sessionDetails: session,
+            history: history(),
+            targetItemIds: old.targetItemIds,
+            followUpCounts: session.followUpCounts,
+          });
+          const ev = d.evaluation;
+          addBubble("user", answer);
+          addBubble("ai", ev.assessment || "Follow-up reviewed.");
+          old.parentEntry.followUpAnswer = answer;
+          old.parentEntry.followUpMainPoint = ev.mainPoint || answer;
+          old.parentEntry.evaluation = ev;
+          if (["unknown", "delegated"].includes(ev.disposition)) {
+            old.parentEntry.status = ev.disposition;
+            old.parentEntry.reason = ev.reason || answer;
+            old.parentEntry.needsReview = ev.disposition === "unknown";
+          }
+          old.parentEntry.coveredItemIds = [...new Set([...(old.parentEntry.coveredItemIds || []), ...(ev.coveredItemIds || [])])];
+          old.parentEntry.mainPoint = ev.mainPoint || old.parentEntry.mainPoint || answer;
+          old.parentEntry.needsReview = Boolean(old.parentEntry.needsReview || ev.needsReview || ev.fallback);
+          if (old.parentEntry.needsReview) old.parentEntry.handledItemIds = old.targetItemIds;
+          if (ev.sufficient || old.targetItemIds.every((id) => (ev.coveredItemIds || []).includes(id))) {
+            pending = null;
+            $("answerInput").value = "";
+            save();
+            show("answerArea", false);
+            await askNext();
+          } else {
+            const hitLimit = old.targetItemIds.every((id) => (session.followUpCounts[id] || 0) >= 2);
+            if (!hitLimit && ev.followUpQuestion) {
+              old.targetItemIds.forEach((id) => (session.followUpCounts[id] = (session.followUpCounts[id] || 0) + 1));
+              pending = { ...old, question: ev.followUpQuestion };
+              renderSuggestions([]);
+              addBubble("ai", ev.followUpQuestion, "Final allowed follow-up");
+              $("answerInput").value = "";
+              save();
+            } else {
+              old.parentEntry.needsReview = true;
+              old.parentEntry.handledItemIds = old.targetItemIds;
+              pending = null;
+              $("answerInput").value = "";
+              save();
+              show("answerArea", false);
+              await askNext();
+            }
+          }
+        } catch (e) {
+          $("answerError").textContent = e.message + " Your answer has not been discarded. Retry, or continue with it flagged for review.";
+          show("continueAnywayBtn", true);
+        } finally {
+          setBusy(false);
+        }
+      }
+      function preview() {
+        show("workspace", false);
+        show("review", true);
+        const host = $("reviewContent");
+        host.innerHTML = "";
+        const summary = document.createElement("div");
+        summary.className = "rounded-xl soft p-4 text-sm";
+        summary.innerHTML = `<b>${escapeHtml(session.projectName || `${session.companyName} - ${session.projectType}`)}</b><br>${escapeHtml(session.clientName)} · ${escapeHtml(session.companyName)}<br>${escapeHtml(session.contactName)} · ${escapeHtml(session.contactEmail)}<br>Project type: ${escapeHtml(session.projectType)}`;
+        host.appendChild(summary);
+        config.checkpoints.forEach((cp) => {
+          const section = document.createElement("section");
+          section.innerHTML = `<h3 class="font-bold text-lg mb-3">${escapeHtml(cp.title)}</h3>`;
+          const entries = session.answers.filter((a) => a.checkpointId === cp.id);
+          if (!entries.length) section.innerHTML += '<p class="text-sm muted">No answers recorded.</p>';
+          entries.forEach((a) => {
+            const box = document.createElement("div");
+            box.className = "border borderline rounded-lg p-3 mb-3 text-sm";
+            const flag =
+              a.status === "unknown"
+                ? "CLIENT DOES NOT KNOW YET"
+                : a.status === "delegated"
+                  ? "DECISION DELEGATED TO DELIVERY TEAM"
+                  : a.status === "accepted"
+                    ? "ACCEPTED AS-IS"
+                    : a.needsReview
+                      ? "NEEDS REVIEW"
+                      : "";
+            box.innerHTML = `<div class="font-semibold">${escapeHtml(a.question)}</div><div class="mt-2 chat">${escapeHtml(a.answer)}</div>${a.mainPoint ? `<div class="mt-2 text-xs muted"><b>Main point captured:</b> ${escapeHtml(a.mainPoint)}</div>` : ""}${a.followUpQuestion ? `<div class="mt-2 text-blue-700">Follow-up: ${escapeHtml(a.followUpQuestion)}</div><div>${escapeHtml(a.followUpAnswer || "")}</div>` : ""}${a.reason ? `<div class="mt-2">Reason: ${escapeHtml(a.reason)}</div>` : ""}${flag ? `<div class="mt-2 font-bold text-amber-700">⚑ ${flag}</div>` : ""}${a.evaluation?.contradictions?.length ? `<div class="mt-2 text-red-700">Potential contradiction: ${escapeHtml(a.evaluation.contradictions.join("; "))}</div>` : ""}`;
+            section.appendChild(box);
+          });
+          const note = session.checkpointNotes?.[cp.id];
+          if (note) {
+            const noteBox = document.createElement("div");
+            noteBox.className = "rounded-lg soft p-3 text-sm";
+            noteBox.innerHTML = `<b>Additional checkpoint notes</b><div class="mt-1 chat">${escapeHtml(note)}</div>`;
+            section.appendChild(noteBox);
+          }
+          host.appendChild(section);
+        });
+      }
+      async function runFinalValidation() {
+        const btn = $("validateBtn");
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        btn.innerHTML = '<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>Checking completeness…</span>';
+        btn.classList.add("inline-flex", "items-center", "gap-2");
+        $("validationResults").classList.remove("hidden");
+        $("validationResults").textContent = "Checking required information, unresolved items and possible contradictions…";
+        try {
+          const result = await publicApi("/api/validate-intake", session);
+          session.validationPassed = true;
+          session.validationReport = result;
+          save();
+          const warnings = result.warnings || [];
+          const missing = result.missingRequired || [];
+          let html = '<div class="font-bold text-emerald-700">Validation review completed. You may submit the ticket even if warnings remain.</div>';
+          if (missing.length)
+            html +=
+              '<div class="mt-3"><b>Important details still missing or unverified:</b><ul class="list-disc pl-5 mt-1">' +
+              missing.map((x) => `<li>${escapeHtml(x.label)}</li>`).join("") +
+              "</ul></div>";
+          if (warnings.length)
+            html +=
+              '<div class="mt-3 text-amber-700"><b>Warnings for the project team:</b><ul class="list-disc pl-5">' +
+              warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join("") +
+              "</ul></div>";
+          if (!warnings.length && !missing.length) html += '<p class="mt-2">No outstanding warnings were identified.</p>';
+          html += '<p class="mt-3 text-sm font-semibold">Submitting will include these warnings in the Zendesk ticket for follow-up.</p>';
+          $("validationResults").innerHTML = html;
+          $("submitTicketBtn").disabled = false;
+        } catch (e) {
+          session.validationPassed = false;
+          $("submitTicketBtn").disabled = true;
+          $("validationResults").textContent = e.message + " Please retry the final validation review.";
+        } finally {
+          btn.disabled = false;
+          btn.removeAttribute("aria-busy");
+          btn.innerHTML = "Run final completeness check";
+          btn.classList.remove("inline-flex", "items-center", "gap-2");
+        }
+      }
+      $("themeBtn").onclick = () => {
+        document.body.classList.toggle("dark");
+        localStorage.setItem("sowTheme", document.body.classList.contains("dark") ? "dark" : "light");
+      };
+      if (localStorage.getItem("sowTheme") === "dark") document.body.classList.add("dark");
+      $("startBtn").onclick = () => withButtonLoading($("startBtn"), "Starting discovery…", () => startSession(false));
+      $("sendBtn").onclick = () => (pending?.isFollowUp ? submitFollowUp() : submitAnswer());
+      $("unknownBtn").onclick = () => {
+        if (!pending) return;
+        const reason = prompt("Why does the client not know this yet?");
+        if (reason === null) return;
+        markCurrentAs("unknown", reason.trim() || "Client unable to confirm during this meeting.");
+      };
+      $("acceptBtn").onclick = () => {
+        if (!pending) return;
+        if (!confirm("Accept this answer as-is and flag it for project-team review?")) return;
+        markCurrentAs("accepted");
+      };
+      $("checkpointNote").addEventListener("input", () => {
+        if (!session) return;
+        session.checkpointNotes = session.checkpointNotes || {};
+        session.checkpointNotes[checkpoint().id] = $("checkpointNote").value;
+        session.validationPassed = false;
+        save();
+      });
+      $("nextCheckpointBtn").onclick = async () => {
+        session.checkpointNotes = session.checkpointNotes || {};
+        session.checkpointNotes[checkpoint().id] = $("checkpointNote").value.trim();
+        if (session.checkpointIndex >= 5) {
+          save();
+          preview();
+          return;
+        }
+        session.checkpointIndex++;
+        session.maxCheckpointIndex = Math.max(session.maxCheckpointIndex || 0, session.checkpointIndex);
+        save();
+        await askNext();
+      };
+      $("backBtn").onclick = () => navigateToCheckpoint(session.checkpointIndex - 1);
+      $("refreshBtn").onclick = async () => {
+        if (!session) return;
+        if (pending) {
+          $("answerError").textContent = "Retrying the current answer…";
+          show("continueAnywayBtn", false);
+          pending.isFollowUp ? await submitFollowUp() : await submitAnswer();
+        } else {
+          await askNext();
+        }
+      };
+      $("continueAnywayBtn").onclick = () => {
+        if (!pending) return;
+        const answer = $("answerInput").value.trim();
+        if (!answer) {
+          $("answerError").textContent = "Enter an answer before continuing.";
+          return;
+        }
+        const entry = {
+          checkpointId: checkpoint().id,
+          question: pending.question,
+          answer,
+          status: "answered",
+          coveredItemIds: [],
+          handledItemIds: pending.targetItemIds,
+          mainPoint: answer,
+          needsReview: true,
+          evaluation: {
+            assessment: "AI evaluation failed. Presales continued manually; project team review required.",
+            contradictions: [],
+          },
+        };
+        if (pending.isFollowUp && pending.parentEntry) {
+          pending.parentEntry.followUpAnswer = answer;
+          pending.parentEntry.followUpMainPoint = answer;
+          pending.parentEntry.needsReview = true;
+          pending.parentEntry.handledItemIds = pending.targetItemIds;
+        } else session.answers.push(entry);
+        addBubble("user", answer, "Saved without AI evaluation — needs review");
+        pending = null;
+        session.validationPassed = false;
+        $("answerInput").value = "";
+        show("answerArea", false);
+        show("continueAnywayBtn", false);
+        save();
+        askNext();
+      };
+      $("validateBtn").onclick = runFinalValidation;
+      $("reviewBtn").onclick = preview;
+      $("closeReviewBtn").onclick = $("backToSessionBtn").onclick = () => {
+        show("review", false);
+        show("workspace", true);
+      };
+      $("submitTicketBtn").onclick = async () => {
+        if (!session.validationPassed) {
+          $("submitStatus").textContent = "Run the final validation review before submitting. Warnings will not prevent submission.";
+          return;
+        }
+        const btn = $("submitTicketBtn");
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        btn.innerHTML = '<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>Submitting to Zendesk…</span>';
+        btn.classList.add("inline-flex", "items-center", "gap-2");
+        $("submitStatus").textContent = "Sending the discovery details to Zendesk. Please keep this page open…";
+        try {
+          const r = await api("/api/submit-intake", { sessionId: session.id });
+          $("submitStatus").innerHTML =
+            `Submitted successfully. Ticket #${r.ticketId}. <a class="underline" target="_blank" rel="noopener" href="${escapeHtml(r.zendeskUrl)}">Open Zendesk ticket</a>`;
+          session.status = "submitted";
+          await api(`/api/sessions/${session.id}`, { status: "submitted" }, "PATCH");
+          btn.classList.add("hidden");
+        } catch (e) {
+          $("submitStatus").textContent = e.message;
+          btn.disabled = false;
+          btn.removeAttribute("aria-busy");
+          btn.innerHTML = "Confirm and submit to Zendesk";
+          btn.classList.remove("inline-flex", "items-center", "gap-2");
+        }
+      };
+
+      function formatDate(value) {
+        if (!value) return "—";
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+      }
+      function statusLabel(status) {
+        return (
+          {
+            draft: "Draft",
+            in_progress: "In progress",
+            review: "Needs review",
+            submitted: "Submitted",
+            completed: "Completed",
+            cancelled: "Cancelled",
+          }[status] ||
+          status ||
+          "Unknown"
+        );
+      }
+      function sessionCard(item, admin = false) {
+        const title =
+          item.project_name ||
+          item.projectName ||
+          `${item.company_name || item.companyName || "Untitled company"} · ${item.project_type || item.projectType || "Project"}`;
+        const owner = item.owner?.full_name || item.owner_name || item.owner_email || item.profiles?.full_name || "Employee";
+        const status = item.status || "in_progress";
+        const progress = Number(item.checkpoint_index ?? item.checkpointIndex ?? 0);
+        return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · ${escapeHtml(item.client_name || item.clientName || "Client not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
+      }
+      function renderMySessions() {
+        const host = $("mySessionsList");
+        const active = mySessionsCache.filter((x) => ["draft", "in_progress", "review"].includes(x.status));
+        $("myActiveCount").textContent = active.length;
+        $("mySubmittedCount").textContent = mySessionsCache.filter((x) => ["submitted", "completed"].includes(x.status)).length;
+        $("mySharedCount").textContent = mySessionsCache.filter((x) => x.visibility === "team" && x.owner_id !== currentUser.id).length;
+        host.innerHTML = mySessionsCache.length ? mySessionsCache.map((x) => sessionCard(x, false)).join("") : '<div class="panel rounded-xl p-6 muted text-sm">You do not have any saved discovery sessions yet.</div>';
+      }
+      async function loadMySessions() {
+        const host = $("mySessionsList");
+        const cached = readCache("my-sessions");
+        if (cached) { mySessionsCache = cached; renderMySessions(); }
+        else host.innerHTML = '<div class="panel loading-panel rounded-xl p-5 muted text-sm flex items-center gap-3"><span class="loading-spinner"></span>Loading your sessions…</div>';
+        try {
+          const d = await api("/api/sessions", undefined, "GET");
+          mySessionsCache = d.sessions || [];
+          writeCache("my-sessions", mySessionsCache);
+          renderMySessions();
+          $("mySessionsError").textContent = "";
+        } catch (e) {
+          if (!cached) host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`;
+          $("mySessionsError").textContent = e.message;
+        }
+      }
+      async function loadAllSessions() {
+        const host = $("allSessionsList");
+        const cached = readCache("admin-sessions");
+        if (cached) {
+          allSessionsCache = cached;
+          updateAdminSessionCounts();
+          renderAllSessions();
+        } else host.innerHTML = '<div class="panel loading-panel rounded-xl p-5 muted text-sm flex items-center gap-3"><span class="loading-spinner"></span>Loading session tracking…</div>';
+        try {
+          const d = await api("/api/admin/sessions", undefined, "GET");
+          allSessionsCache = d.sessions || [];
+          writeCache("admin-sessions", allSessionsCache);
+          updateAdminSessionCounts();
+          renderAllSessions();
+          $("allSessionsError").textContent = "";
+        } catch (e) {
+          if (!cached) host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`;
+          $("allSessionsError").textContent = e.message;
+        }
+      }
+      function updateAdminSessionCounts() {
+        $("allTotalCount").textContent = allSessionsCache.length;
+        $("allActiveCount").textContent = allSessionsCache.filter((x) => ["draft", "in_progress"].includes(x.status)).length;
+        $("allSubmittedCount").textContent = allSessionsCache.filter((x) => ["submitted", "completed"].includes(x.status)).length;
+        $("allReviewCount").textContent = allSessionsCache.filter((x) => x.status === "review" || x.needs_review).length;
+      }
+      function renderAllSessions() {
+        const q = $("trackingSearch").value.trim().toLowerCase(),
+          status = $("trackingStatus").value,
+          team = $("trackingTeam").value;
+        const filtered = allSessionsCache.filter((x) => {
+          const text = [x.project_name, x.projectName, x.company_name, x.companyName, x.owner?.full_name, x.owner_name, x.owner_email, x.team?.name]
+            .join(" ")
+            .toLowerCase();
+          return (!q || text.includes(q)) && (status === "all" || x.status === status) && (team === "all" || String(x.team_id || "") === team);
+        });
+        $("allSessionsList").innerHTML = filtered.length
+          ? filtered.map((x) => sessionCard(x, true)).join("")
+          : '<div class="panel rounded-xl p-6 muted text-sm">No sessions match these filters.</div>';
+      }
+      async function openSavedSession(id) {
+        try {
+          const d = await api(`/api/sessions/${id}`, undefined, "GET");
+          session = normalizeSession(d.session || d);
+          session.checkpointNotes = session.checkpointNotes || {};
+          session.followUpCounts = session.followUpCounts || {};
+          if (session.status === "submitted" || session.status === "completed") {
+            alert("This session is read-only because it has already been submitted.");
+            return;
+          }
+          const claim = await api(`/api/sessions/${id}/claim`, {}, "POST");
+          if (claim.session) {
+            session = normalizeSession(claim.session);
+          }
+          detailsFields.forEach((k) => ($(k).value = session[k] || ""));
+          show("setup", false);
+          show("workspace", true);
+          show("review", false);
+          setTab("discovery");
+          await askNext();
+        } catch (e) {
+          alert("Unable to open this session: " + e.message);
+        }
+      }
+      async function loadTeams() {
+        try {
+          const d = await api(currentRole === "admin" ? "/api/admin/teams" : "/api/teams", undefined, "GET");
+          const teams = d.teams || [];
+          for (const id of ["employeeTeam", "trackingTeam", "sessionTeam"]) {
+            const select = $(id);
+            if (!select) continue;
+            const keep = select.value;
+            select.innerHTML =
+              id === "trackingTeam"
+                ? '<option value="all">All teams</option>'
+                : id === "sessionTeam"
+                  ? '<option value="">Select a team</option>'
+                  : '<option value="">No team assigned</option>';
+            teams.forEach((t) => {
+              const o = document.createElement("option");
+              o.value = t.id;
+              o.textContent = t.name;
+              select.appendChild(o);
+            });
+            select.value = keep;
+          }
+        } catch (e) {
+          console.warn("Teams could not be loaded:", e.message);
+        }
+      }
+      function renderEmployees() {
+        const host = $("employeesList");
+        const roleFilter = $("employeeRoleFilter")?.value || "all";
+        const filtered = employeesCache.filter(u => roleFilter === "all" || u.role === roleFilter);
+        host.innerHTML = filtered.length ? filtered.map(u => {
+          const pending = !u.password_setup_completed;
+          return `<article class="border-b borderline py-4" data-employee="${escapeHtml(u.id)}">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0"><div class="font-semibold">${escapeHtml(u.full_name || "Unnamed employee")}</div><div class="muted text-xs break-all">${escapeHtml(u.email || "")}</div>
+                <div class="muted text-xs mt-1">${escapeHtml(u.team_name || "No team")}</div>
+                <div class="flex flex-wrap gap-2 mt-2"><span class="text-xs rounded-full px-2.5 py-1 ${pending ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}">${pending ? "Pending account setup" : "Account created"}</span><span class="text-xs rounded-full px-2.5 py-1 bg-slate-100 text-slate-700">${u.is_active === false ? "Inactive" : "Active"}</span></div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2"><label class="text-xs muted">Role<select class="field mt-1 !w-32" data-edit-role="${escapeHtml(u.id)}"><option value="presales" ${u.role === "presales" ? "selected" : ""}>Presales</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>Admin</option></select></label>
+                <label class="text-xs muted">Team<select class="field mt-1 !w-40" data-edit-team="${escapeHtml(u.id)}"><option value="">No team</option>${teamOptionsHtml(u.team_id)}</select></label>
+                <button class="rounded-lg bg-blue-700 text-white px-3 py-2 text-xs font-semibold" data-save-employee="${escapeHtml(u.id)}">Save changes</button>
+                <button class="rounded-lg border border-red-300 text-red-700 px-3 py-2 text-xs" data-delete-employee="${escapeHtml(u.id)}">Delete</button>
+              </div>
+            </div></article>`;
+        }).join("") : '<p class="muted text-sm">No employees match this access-role filter.</p>';
+      }
+      function teamOptionsHtml(selectedTeamId) {
+        return [...$("employeeTeam").options].filter(o => o.value).map(o => `<option value="${escapeHtml(o.value)}" ${o.value === selectedTeamId ? "selected" : ""}>${escapeHtml(o.textContent)}</option>`).join("");
+      }
+      async function loadEmployees() {
+        const host = $("employeesList");
+        const cached = readCache("employees");
+        if (cached) { employeesCache = cached; renderEmployees(); }
+        else host.innerHTML = '<div class="loading-panel rounded-xl p-4 muted text-sm flex items-center gap-3"><span class="loading-spinner"></span>Loading employees…</div>';
+        try {
+          const d = await api("/api/admin/employees", undefined, "GET");
+          employeesCache = d.employees || [];
+          writeCache("employees", employeesCache);
+          renderEmployees();
+        } catch (e) {
+          if (!cached) host.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message)}</p>`;
+        }
+      }
+      async function updateEmployee(id) {
+        const role = document.querySelector(`[data-edit-role="${CSS.escape(id)}"]`).value;
+        const teamId = document.querySelector(`[data-edit-team="${CSS.escape(id)}"]`).value || null;
+        const btn = document.querySelector(`[data-save-employee="${CSS.escape(id)}"]`);
+        await withButtonLoading(btn, "Saving…", async () => {
+          await api(`/api/admin/employees/${id}`, { role, teamId }, "PATCH");
+          writeCache("employees", null);
+          await loadEmployees();
+        });
+      }
+      async function deleteEmployee(id) {
+        const employee = employeesCache.find(u => u.id === id);
+        if (!employee || !confirm(`Permanently delete ${employee.email || employee.full_name || "this user"}? This also removes the Supabase Auth account and associated discovery data. This cannot be undone.`)) return;
+        const btn = document.querySelector(`[data-delete-employee="${CSS.escape(id)}"]`);
+        await withButtonLoading(btn, "Deleting…", async () => {
+          await api(`/api/admin/employees/${id}`, {}, "DELETE");
+          employeesCache = employeesCache.filter(u => u.id !== id);
+          writeCache("employees", employeesCache);
+          renderEmployees();
+          writeCache("admin-sessions", null);
+        });
+      }
+      async function inviteEmployee(e) {
+        e.preventDefault();
+        const btn = $("inviteEmployeeBtn"),
+          status = $("inviteEmployeeStatus");
+        status.textContent = "";
+        await withButtonLoading(btn, "Sending invitation…", async () => {
+        try {
+          await api("/api/admin/invites", {
+            email: $("employeeEmail").value.trim(),
+            fullName: $("employeeFullName").value.trim(),
+            role: $("employeeRole").value,
+            teamId: $("employeeTeam").value || null,
+          });
+          status.textContent = "Invitation sent successfully.";
+          $("inviteEmployeeForm").reset();
+          await loadEmployees();
+        } catch (err) {
+          status.textContent = err.message;
+        }
+        });
+      }
+      async function showAuthenticatedApp() {
+        // Invitation links are setup-only. Never let an invitation session enter the workspace.
+        if (isInviteFlow) {
+          show("authLoading", false);
+          show("appScreen", false);
+          show("loginScreen", true);
+          show("invitePasswordPanel", true);
+          $("loginForm").classList.add("hidden");
+          show("logoutBtn", false);
+          show("userBadge", false);
+          return;
+        }
+        show("authLoading", true);
+        show("loginScreen", false);
+        show("appScreen", false);
+        try {
+          const { data: { session: authSession } } = await supabaseClient.auth.getSession();
+          if (!authSession) {
+            show("authLoading", false);
+            show("loginScreen", true);
+            show("logoutBtn", false);
+            show("userBadge", false);
+            return;
+          }
+          let me;
+          try {
+            me = await api("/api/me", undefined, "GET");
+          } catch (profileError) {
+            // Never leave a pending/ineligible account with an active browser session.
+            await supabaseClient.auth.signOut();
+            session = null;
+            currentUser = null;
+            currentRole = null;
+            clearAppCache();
+            throw profileError;
+          }
+          if (me.profile?.password_setup_completed !== true) {
+            await supabaseClient.auth.signOut();
+            session = null;
+            currentUser = null;
+            currentRole = null;
+            clearAppCache();
+            throw new Error("Your account is pending setup. Complete your invitation password setup before signing in.");
+          }
+          currentUser = { ...(me.user || me), ...(me.profile || {}) };
+          currentRole = me.role || me.profile?.role || currentUser.role;
+          if (!["admin", "presales"].includes(currentRole)) throw new Error("Your account does not have an application role. Contact an administrator.");
+          show("authLoading", false);
+          show("loginScreen", false);
+          show("appScreen", true);
+          show("logoutBtn", true);
+          show("userBadge", true);
+          $("userBadge").textContent = currentUser.full_name || currentUser.email || authSession.user.email;
+          $("headerSubtitle").textContent = currentRole === "admin" ? "Administrator console · Employee and session oversight" : "AI-guided discovery for live client meetings";
+          if (currentRole === "admin") {
+            show("adminTabs", true);
+            show("employeeTabs", false);
+            setTab("employees");
+            await loadTeams();
+            await Promise.all([loadEmployees(), loadAllSessions()]);
+          } else {
+            show("employeeTabs", true);
+            show("adminTabs", false);
+            setTab("discovery");
+            await loadTeams();
+            await loadMySessions();
+            // Keep the discovery screen clean on sign-in; resuming is an explicit Session Manager action.
+            session = null;
+            show("setup", true);
+            show("workspace", false);
+            show("review", false);
+          }
+        } catch (e) {
+          show("authLoading", false);
+          show("loginScreen", true);
+          show("appScreen", false);
+          $("loginError").textContent = e.message;
+        }
+      }
+      $("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = $("loginBtn");
+        $("loginError").textContent = "";
+        show("inviteSuccess", false);
+        await withButtonLoading(btn, "Signing in…", async () => {
+        try {
+          const { error } = await supabaseClient.auth.signInWithPassword({
+            email: $("loginEmail").value.trim(),
+            password: $("loginPassword").value,
+          });
+          if (error) throw error;
+          $("loginError").textContent = "";
+          await showAuthenticatedApp();
+        } catch (err) {
+          $("loginError").textContent = err.message || "Unable to sign in.";
+        }
+        });
+      });
+      function invitePasswordChecks(password) {
+        return {
+          length: password.length >= 12,
+          upper: /[A-Z]/.test(password),
+          lower: /[a-z]/.test(password),
+          number: /[0-9]/.test(password),
+          special: /[^A-Za-z0-9\s]/.test(password),
+        };
+      }
+      function updateInvitePasswordFeedback() {
+        const password = $("invitePassword").value;
+        const confirmation = $("invitePasswordConfirm").value;
+        const checks = invitePasswordChecks(password);
+        const rules = [
+          ["length", "inviteRuleLength", "At least 12 characters"],
+          ["upper", "inviteRuleUpper", "At least one uppercase letter (A–Z)"],
+          ["lower", "inviteRuleLower", "At least one lowercase letter (a–z)"],
+          ["number", "inviteRuleNumber", "At least one number (0–9)"],
+          ["special", "inviteRuleSpecial", "At least one special character"],
+        ];
+        const passed = rules.filter(([key]) => checks[key]).length;
+        for (const [key, id, label] of rules) {
+          const item = $(id);
+          item.textContent = `${checks[key] ? "✓" : "✗"} ${label}`;
+          item.classList.toggle("text-emerald-700", checks[key]);
+          item.classList.toggle("text-red-600", !checks[key]);
+        }
+        const strengthLabel = passed <= 2 ? "Weak" : passed === 3 ? "Fair" : passed === 4 ? "Good" : "Strong";
+        const strengthColors = {
+          Weak: ["#ef4444", "text-red-600"],
+          Fair: ["#f97316", "text-orange-600"],
+          Good: ["#eab308", "text-yellow-600"],
+          Strong: ["#16a34a", "text-emerald-700"],
+        };
+        const [barColor, labelClass] = strengthColors[strengthLabel];
+        $("invitePasswordStrengthBar").style.width = `${(passed / 5) * 100}%`;
+        $("invitePasswordStrengthBar").style.backgroundColor = barColor;
+        $("invitePasswordStrengthLabel").textContent = password ? strengthLabel : "Not entered";
+        $("invitePasswordStrengthLabel").className = `font-semibold ${password ? labelClass : "muted"}`;
+        const matches = Boolean(password && confirmation && password === confirmation);
+        $("invitePasswordMatch").textContent = !confirmation
+          ? "Enter the same password again to confirm it."
+          : matches ? "✓ Passwords match." : "✗ Passwords do not match.";
+        $("invitePasswordMatch").className = `text-xs mt-1 ${matches ? "text-emerald-700" : confirmation ? "text-red-600" : "muted"}`;
+        const secure = Object.values(checks).every(Boolean);
+        $("setInvitePasswordBtn").disabled = !(secure && matches);
+        return secure && matches;
+      }
+      $("invitePassword").addEventListener("input", updateInvitePasswordFeedback);
+      $("invitePasswordConfirm").addEventListener("input", updateInvitePasswordFeedback);
+
+      $("logoutBtn").onclick = async () => {
+        await supabaseClient.auth.signOut();
+        session = null;
+        clearAppCache();
+        currentUser = null;
+        currentRole = null;
+        show("appScreen", false);
+        show("loginScreen", true);
+        show("logoutBtn", false);
+        show("userBadge", false);
+        $("loginPassword").value = "";
+      };
+      $("setInvitePasswordBtn").onclick = async () => {
+        const button = $("setInvitePasswordBtn");
+        $("inviteError").textContent = "";
+        show("inviteSuccess", false);
+        await withButtonLoading(button, "Creating password…", async () => {
+          try {
+            const password = $("invitePassword").value;
+            const confirmation = $("invitePasswordConfirm").value;
+            if (password !== confirmation) throw new Error("The new password and confirmation do not match.");
+            if (!Object.values(invitePasswordChecks(password)).every(Boolean)) {
+              throw new Error("Your password must meet every item in the security checklist.");
+            }
+
+            const { data, error } = await supabaseClient.auth.updateUser({ password });
+            if (error) throw error;
+
+            // Complete the profile update while the one-time invitation session is valid.
+            await api("/api/me/password-setup", { completed: true }, "PATCH");
+
+            const invitedEmail = data?.user?.email || "";
+            // Revoke the temporary invite session. A fresh, manual password login is required.
+            const { error: signOutError } = await supabaseClient.auth.signOut();
+            if (signOutError) throw signOutError;
+
+            isInviteFlow = false;
+            clearAppCache();
+            window.location.hash = "";
+            show("authLoading", false);
+            show("appScreen", false);
+            show("invitePasswordPanel", false);
+            show("loginScreen", true);
+            $("loginForm").classList.remove("hidden");
+            if (invitedEmail) $("loginEmail").value = invitedEmail;
+            $("loginPassword").value = "";
+            $("invitePassword").value = "";
+            $("invitePasswordConfirm").value = "";
+            updateInvitePasswordFeedback();
+            $("loginError").textContent = "";
+            show("logoutBtn", false);
+            show("userBadge", false);
+            show("inviteSuccess", true);
+          } catch (e) {
+            $("inviteError").textContent = e.message || "Unable to create your password.";
+          }
+        });
+      };
+      $("discoveryTabBtn").onclick = () => setTab("discovery");
+      $("sessionManagerTabBtn").onclick = async () => {
+        setTab("manager");
+        await loadMySessions();
+      };
+      $("newEmployeesTabBtn").onclick = () => setTab("employees");
+      $("sessionTrackingTabBtn").onclick = async () => {
+        setTab("tracking");
+        await loadAllSessions();
+      };
+      $("closeSessionDetailBtn").onclick = () => show("sessionDetailPanel", false);
+      $("sessionDetailPanel").addEventListener("click", (e) => {
+        if (e.target.id === "sessionDetailPanel") show("sessionDetailPanel", false);
+      });
+      $("refreshMySessionsBtn").onclick = () => withButtonLoading($("refreshMySessionsBtn"), "Refreshing…", loadMySessions);
+      $("refreshAllSessionsBtn").onclick = () => withButtonLoading($("refreshAllSessionsBtn"), "Refreshing…", loadAllSessions);
+      $("refreshEmployeesBtn").onclick = () => withButtonLoading($("refreshEmployeesBtn"), "Refreshing…", loadEmployees);
+      $("employeeRoleFilter").addEventListener("change", renderEmployees);
+      $("employeesList").addEventListener("click", async (e) => {
+        const save = e.target.closest("[data-save-employee]");
+        const del = e.target.closest("[data-delete-employee]");
+        try {
+          if (save) await updateEmployee(save.dataset.saveEmployee);
+          if (del) await deleteEmployee(del.dataset.deleteEmployee);
+        } catch (err) { alert("Employee update failed: " + err.message); }
+      });
+      $("inviteEmployeeForm").addEventListener("submit", inviteEmployee);
+      $("sessionVisibility").addEventListener("change", () => {
+        show("sessionTeamWrap", $("sessionVisibility").value === "team");
+      });
+      $("trackingSearch").addEventListener("input", renderAllSessions);
+      $("trackingStatus").addEventListener("change", renderAllSessions);
+      $("trackingTeam").addEventListener("change", renderAllSessions);
+      document.addEventListener("click", (e) => {
+        const resume = e.target.closest("[data-resume-session]");
+        const view = e.target.closest("[data-view-session]");
+        if (resume) {
+          withButtonLoading(resume, "Opening…", () => openSavedSession(resume.dataset.resumeSession));
+        }
+        if (view) {
+          withButtonLoading(view, "Loading…", () => openSessionDetail(view.dataset.viewSession));
+        }
+      });
+      async function openSessionDetail(id) {
+        try {
+          const d = await api(`/api/sessions/${id}`, undefined, "GET");
+          const s = normalizeSession(d.session || d);
+          $("detailTitle").textContent = s.project_name || s.projectName || s.company_name || s.companyName || "Discovery session";
+          $("detailMeta").textContent =
+            `${s.company_name || s.companyName || "Company"} · ${s.owner?.full_name || s.owner_name || "Employee"} · ${statusLabel(s.status)} · Updated ${formatDate(s.updated_at || s.updatedAt)}`;
+          const answers = s.answers || [];
+          $("detailAnswers").innerHTML = answers.length
+            ? answers
+                .map(
+                  (a) =>
+                    `<article class="border borderline rounded-xl p-4"><div class="text-xs uppercase tracking-wide muted">${escapeHtml(a.checkpoint_id || a.checkpointId || "Checkpoint")} · ${escapeHtml(a.status || "answered")}</div><div class="font-semibold mt-1">${escapeHtml(a.question || "")}</div><p class="chat text-sm mt-2">${escapeHtml(a.answer || "")}</p>${a.follow_up_question || a.followUpQuestion ? `<div class="mt-3 text-sm"><b>Follow-up:</b> ${escapeHtml(a.follow_up_question || a.followUpQuestion)}<p class="chat mt-1">${escapeHtml(a.follow_up_answer || a.followUpAnswer || "")}</p></div>` : ""}${a.needs_review || a.needsReview ? '<div class="mt-2 text-xs font-semibold text-amber-700">Needs review</div>' : ""}</article>`,
+                )
+                .join("")
+            : '<p class="muted text-sm">No answers have been recorded.</p>';
+          show("sessionDetailPanel", true);
+        } catch (e) {
+          alert("Unable to view session: " + e.message);
+        }
+      }
+      (async () => {
+        try {
+          const configResponse = await fetch("/api/public-config");
+          const publicConfig = await configResponse.json();
+          if (!configResponse.ok || !publicConfig.supabaseUrl || !publicConfig.supabasePublishableKey)
+            throw new Error("Supabase browser configuration is unavailable. Check the server .env settings.");
+          supabaseClient = window.supabase.createClient(publicConfig.supabaseUrl, publicConfig.supabasePublishableKey);
+          const r = await fetch("/api/intake-config");
+          config = await r.json();
+          if (!config.checkpoints) throw new Error("Config unavailable");
+          const inviteLink = location.hash.includes("type=invite");
+          isInviteFlow = inviteLink;
+          if (inviteLink) {
+            // Do not inspect an existing session or route to the workspace on invitation URLs.
+            show("authLoading", false);
+            show("loginScreen", true);
+            show("appScreen", false);
+            show("invitePasswordPanel", true);
+            $("loginForm").classList.add("hidden");
+          } else {
+            show("invitePasswordPanel", false);
+            $("loginForm").classList.remove("hidden");
+            await showAuthenticatedApp();
+          }
+          supabaseClient.auth.onAuthStateChange(async (event) => {
+            if (event === "SIGNED_OUT") {
+              session = null;
+              currentUser = null;
+              currentRole = null;
+              clearAppCache();
+              show("appScreen", false);
+              show("loginScreen", true);
+              show("logoutBtn", false);
+              show("userBadge", false);
+            }
+          });
+        } catch (e) {
+          show("authLoading", false);
+          show("loginScreen", true);
+          $("loginError").textContent = "Unable to initialize the application: " + e.message;
+        }
+      })();
+    </script>
+  </body>
 </html>
