@@ -360,7 +360,6 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
     const value = (snake, camel) => body[snake] ?? body[camel];
 
     const requiredFields = [
-      ['client_name', 'clientName'],
       ['company_name', 'companyName'],
       ['contact_name', 'contactName'],
       ['contact_email', 'contactEmail'],
@@ -408,7 +407,7 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
 
     const insert = {
       owner_id: req.user.id,
-      client_name: safeText(value('client_name', 'clientName'), 180),
+      client_name: safeText(value('contact_name', 'contactName') || value('client_name', 'clientName'), 180),
       company_name: safeText(value('company_name', 'companyName'), 180),
       contact_name: safeText(value('contact_name', 'contactName'), 120),
       contact_email: safeText(value('contact_email', 'contactEmail'), 254),
@@ -1169,7 +1168,7 @@ function compactFallback(value, max = 500) {
 
 function dateOnly(value) {
   const text = safeText(value, 1000);
-  const fullDate = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+(20\d{2})\b/i);
+  const fullDate = text.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+(20\d{2})\b/i);
   if (fullDate) {
     const month = `${fullDate[1][0].toUpperCase()}${fullDate[1].slice(1).toLowerCase()}`;
     return `${month} ${Number(fullDate[2])}, ${fullDate[3]}`;
@@ -1181,7 +1180,7 @@ function dateOnly(value) {
       return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(parsed);
     }
   }
-  const monthYear = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\b/i);
+  const monthYear = text.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(20\d{2})\b/i);
   return monthYear
     ? `${monthYear[1][0].toUpperCase()}${monthYear[1].slice(1).toLowerCase()} ${monthYear[2]}`
     : '';
@@ -1205,7 +1204,7 @@ async function generateConciseTicketSummary(data) {
       : '';
 
     const matches = [...source.matchAll(
-      /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(?:\d{1,2}(?:st|nd|rd|th)?[,]?\s+)?20\d{2}\b/gi
+      /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(?:\d{1,2}(?:st|nd|rd|th)?[,]?\s+)?20\d{2}\b/gi
     )].map(m => dateOnly(m[0]));
 
     if (!matches.length) return '';
@@ -1257,7 +1256,7 @@ Be concise and factual: short phrases or bullets, not paragraphs.
 Preserve all concrete facts: exact month/year dates, quantities, named platforms, communication channels, operating hours, targets, constraints, and caveats.
 IMPORTANT RECONCILIATION RULE: If an earlier answer names several systems and a later follow-up clarifies the role of one system, keep all the named systems unless the client explicitly says a system is no longer in scope. Example: "CRM, Five9, and Confluence" followed by "Microsoft CRM is the ticketing platform" should become "Microsoft CRM (ticketing), Five9 (telephony), Confluence (knowledge base)"—do not drop Five9 or Confluence.
 For dates, output only the date value, e.g. "January 2027" and "April 2027"; never repeat the same combined sentence under two date fields.
-Do not invent missing details or turn suggestions into confirmed requirements. Put unknown, delegated, accepted-as-is, or needs-review items in internalFollowUps, with the correct distinction.
+Do not invent missing details or turn suggestions into confirmed requirements. Put only explicit client-does-not-know answers in clientFollowUps; do not create internal follow-ups. Do not generate internal team follow-ups. Unknown client answers are handled separately as client follow-ups. Do not treat them as missing or warning items.
 Remove duplicate points. Avoid generic filler. If a field is not supported, return an empty string or empty array.
 Use the company/contact/project details only in the project header, not repeated in the requirement bullets.`,
         input: JSON.stringify({
@@ -1321,7 +1320,7 @@ Use the company/contact/project details only in the project header, not repeated
                   type: 'array',
                   items: { type: 'string' }
                 },
-                internalFollowUps: {
+                clientFollowUps: {
                   type: 'array',
                   items: { type: 'string' }
                 }
@@ -1337,7 +1336,7 @@ Use the company/contact/project details only in the project header, not repeated
                 'budget',
                 'deliverables',
                 'acceptance',
-                'internalFollowUps'
+                'clientFollowUps'
               ],
               additionalProperties: false
             }
@@ -1382,44 +1381,17 @@ Use the company/contact/project details only in the project header, not repeated
 
   const dateValue = (id) => extractDateFor(id) || point(id);
   const unique = (ids) => [...new Set(ids.map(point).filter(Boolean))];
-  const followUps = [];
+  const clientFollowUps = [];
 
   for (const a of answers) {
     const status = a.status || a.evaluation?.disposition;
-    const itemId = (a.coveredItemIds || [])[0];
-    const cp = checkpoints.find(c =>
-      c.items.some(i => i.id === itemId)
-    );
+    if (status !== 'unknown') continue;
+    const itemId = (a.coveredItemIds || a.handledItemIds || [])[0];
+    const cp = checkpoints.find(c => c.items.some(i => i.id === itemId));
     const item = cp?.items.find(i => i.id === itemId);
     const label = item?.label || safeText(a.question, 120) || 'Discovery detail';
-
-    if (status === 'unknown') {
-      followUps.push(
-        `${label}: Client does not know yet${a.reason ? ` (${safeText(a.reason, 180)})` : ''}.`
-      );
-    }
-
-    if (status === 'delegated') {
-      followUps.push(`${label}: Client requests a delivery-team recommendation.`);
-    }
-
-    if (
-      a.needsReview ||
-      a.evaluation?.needsReview ||
-      a.evaluation?.fallback
-    ) {
-      followUps.push(`${label}: Needs internal review.`);
-    }
+    clientFollowUps.push(`${label}: ${safeText(a.reason || a.answer, 350) || 'Client does not know yet; confirm with the client.'}`);
   }
-
-  const missing = [
-    ...(validation.missingRequired || []),
-    ...(validation.unresolvedOptional || [])
-  ];
-
-  missing.forEach(x => {
-    followUps.push(`${safeText(x.label || x.id, 180)}: Not yet confirmed.`);
-  });
 
   const systemAnswers = answers.filter(a =>
     (a.coveredItemIds || []).some(id =>
@@ -1472,7 +1444,7 @@ Use the company/contact/project details only in the project header, not repeated
     budget: point('budget'),
     deliverables: unique(['deliverables']),
     acceptance: unique(['acceptance']),
-    internalFollowUps: [...new Set(followUps)]
+    clientFollowUps: [...new Set(clientFollowUps)]
   };
 
   return sections;
@@ -1489,9 +1461,11 @@ async function formatTicket(data) {
     `SOW DISCOVERY — ${projectName}`,
     '',
     'PROJECT DETAILS',
+    `Project title: ${projectName}`,
     `Company: ${safeText(data.companyName, 150) || 'Not provided'}`,
     `Contact: ${safeText(data.contactName, 100) || 'Not provided'}${safeText(data.contactEmail, 254) ? ` | ${safeText(data.contactEmail, 254)}` : ''}`,
-    `Project type: ${safeText(data.projectType, 150) || 'Not provided'}`
+    `Project type: ${safeText(data.projectType, 150) || 'Not provided'}`,
+    `Project description: ${safeText(data.projectDescription, 3000) || 'Not provided'}`
   ];
 
   if (summary.objective) {
@@ -1532,67 +1506,56 @@ async function formatTicket(data) {
   addList('DELIVERABLES', summary.deliverables);
   addList('ACCEPTANCE CRITERIA', summary.acceptance);
 
-  const followUps = Array.isArray(summary.internalFollowUps)
-    ? [...new Set(summary.internalFollowUps.map(x => safeText(x, 400)).filter(Boolean))]
-    : [];
+  // Preserve the original discovery answers so the Zendesk ticket contains the actual scope details,
+  // not only the condensed AI summary. Unknown answers are separated for client follow-up.
+  const allAnswers = Array.isArray(data.answers) ? data.answers : [];
+  const clientFollowUps = [];
+  const discoveryLines = [];
+  for (const answer of allAnswers) {
+    const status = answer.status || answer.evaluation?.disposition || 'answered';
+    const itemIds = Array.isArray(answer.coveredItemIds) ? answer.coveredItemIds : [];
+    const item = checkpoints.flatMap(cp => cp.items).find(x => itemIds.includes(x.id));
+    const label = item?.label || safeText(answer.question, 250) || 'Discovery detail';
+    const question = safeText(answer.question, 1000);
+    const response = safeText(answer.answer, 3000);
+    const followUpResponse = safeText(answer.followUpAnswer || answer.follow_up_answer, 2000);
 
-  const warnings = Array.isArray(data.validationReport?.warnings)
-    ? data.validationReport.warnings
-    : [];
-
-  const meaningfulWarnings = warnings
-    .map(w => safeText(w, 350))
-    .filter(w =>
-      w &&
-      !w.startsWith('Required project detail still missing or unverified:') &&
-      !w.startsWith('Unresolved checklist item:') &&
-      !w.startsWith('AI audit follow-up:')
-    );
-
-  for (const warning of meaningfulWarnings) {
-    if (!followUps.some(x => x.toLowerCase() === warning.toLowerCase())) {
-      followUps.push(warning);
+    if (status === 'unknown') {
+      const detail = safeText(answer.reason || response, 500) || 'Client does not know yet.';
+      clientFollowUps.push(`${label}: ${detail}`);
+      continue;
     }
+
+    if (response) {
+      discoveryLines.push(`- ${label}: ${response}`);
+    } else if (question) {
+      discoveryLines.push(`- ${label}: ${question}`);
+    }
+    if (followUpResponse) discoveryLines.push(`  Clarification: ${followUpResponse}`);
+    if (status === 'delegated') discoveryLines.push('  Decision: Client requested a recommendation from the project team.');
   }
 
-  const missingDetails = [
-    ...(Array.isArray(data.validationReport?.missingRequired)
-      ? data.validationReport.missingRequired
-      : []),
-    ...(Array.isArray(data.validationReport?.unresolvedOptional)
-      ? data.validationReport.unresolvedOptional
-      : [])
-  ];
-
-  for (const item of missingDetails) {
-    const label = safeText(item.label || item.id, 250);
-
-    if (
-      label &&
-      !followUps.some(x => x.toLowerCase().includes(label.toLowerCase()))
-    ) {
-      followUps.push(`${label}: Not yet confirmed.`);
-    }
+  if (discoveryLines.length) {
+    lines.push('', 'DETAILED DISCOVERY RESPONSES', ...discoveryLines);
   }
 
-  const contradictions = Array.isArray(data.validationReport?.contradictions)
-    ? data.validationReport.contradictions
-    : [];
 
-  contradictions.forEach(x => {
-    const item = `Potential inconsistency: ${safeText(x, 300)}`;
+  const startDateUnknown = allAnswers.some(a =>
+    (a.status === 'unknown' || a.evaluation?.disposition === 'unknown') &&
+    (a.coveredItemIds || a.handledItemIds || []).includes('start_date')
+  );
+  const goLiveKnown = allAnswers.some(a =>
+    (a.coveredItemIds || []).includes('go_live') && a.status !== 'unknown'
+  );
+  if (startDateUnknown && goLiveKnown) {
+    clientFollowUps.push('Project go-live date: reconfirm that the target is at least 2 calendar months after the project start date once the client confirms the start date.');
+  }
 
-    if (!followUps.some(y => y.toLowerCase() === item.toLowerCase())) {
-      followUps.push(item);
-    }
-  });
-
-  lines.push('', 'INTERNAL TEAM FOLLOW-UP');
-
-  if (followUps.length) {
-    lines.push(...followUps.map(x => `- ${x}`));
+  lines.push('', 'FOLLOW-UP WITH CLIENT');
+  if (clientFollowUps.length) {
+    lines.push(...[...new Set(clientFollowUps)].map(x => `- ${x}`));
   } else {
-    lines.push('- No outstanding follow-up items recorded.');
+    lines.push('- None currently identified.');
   }
 
   lines.push('', 'Submission: Submitted for internal review.');
@@ -1732,10 +1695,11 @@ app.post('/api/validate-intake', async (req, res) => {
         const records = coverage.get(id) || [];
 
         return !records.some(a =>
-          ['answered', 'accepted', 'delegated'].includes(a.status) &&
-          String(a.answer || '').trim() &&
-          !a.needsReview &&
-          a.status !== 'unknown'
+          a.status === 'unknown' || (
+            ['answered', 'accepted', 'delegated'].includes(a.status) &&
+            String(a.answer || '').trim() &&
+            !a.needsReview
+          )
         );
       })
       .map(id => ({
@@ -1749,7 +1713,7 @@ app.post('/api/validate-intake', async (req, res) => {
         const records = coverage.get(item.id) || [];
 
         return !records.length ||
-          records.every(a => a.status === 'unknown' || a.needsReview);
+          records.every(a => a.status !== 'unknown' && a.needsReview);
       })
       .map(({ cp, item }) => ({
         id: item.id,
@@ -1757,7 +1721,7 @@ app.post('/api/validate-intake', async (req, res) => {
         required: requiredForStart.includes(item.id)
       }));
 
-    const timelineValidation = validateTimelineAnswers(data.answers, { requireGoLive: true });
+    const timelineValidation = validateTimelineAnswers(data.answers, { now: data.created_at ? new Date(data.created_at) : new Date(), requireGoLive: true });
     for (const id of timelineValidation.invalidItemIds) {
       if (!missingRequired.some(item => item.id === id)) {
         const cp = checkpoints.find(checkpoint => checkpoint.id === 'delivery');
@@ -1778,14 +1742,26 @@ app.post('/api/validate-intake', async (req, res) => {
     ];
 
     const blockingIssues = [...timelineValidation.issues];
+    const clientFollowUps = [...new Set((data.answers || []).filter(a => a.status === 'unknown' || a.evaluation?.disposition === 'unknown').map(a => {
+      const id = (a.coveredItemIds || a.handledItemIds || [])[0];
+      const item = checkpoints.flatMap(cp => cp.items).find(x => x.id === id);
+      return `${item?.label || a.question || 'Discovery detail'}: ${safeText(a.reason || a.answer, 350) || 'Client does not know yet.'}`;
+    }))];
+    const startDateUnknown = (data.answers || []).some(a =>
+      (a.status === 'unknown' || a.evaluation?.disposition === 'unknown') &&
+      (a.coveredItemIds || a.handledItemIds || []).includes('start_date')
+    );
+    const goLiveKnown = (data.answers || []).some(a =>
+      (a.coveredItemIds || []).includes('go_live') && a.status !== 'unknown'
+    );
+    if (startDateUnknown && goLiveKnown) {
+      clientFollowUps.push('Project go-live date: reconfirm that the target is at least 2 calendar months after the project start date once the client confirms the start date.');
+    }
 
     const warnings = [
       ...timelineValidation.issues.map(issue => `Timeline validation: ${issue}`),
       ...missingRequired.map(x =>
         `Required project detail still missing or unverified: ${x.label}`
-      ),
-      ...unresolved.map(x =>
-        `Unresolved checklist item: ${x.label}`
       ),
       ...(audit.warnings || []),
       ...(audit.missingCriticalDetails || []).map(x =>
@@ -1803,6 +1779,7 @@ app.post('/api/validate-intake', async (req, res) => {
       blockingIssues,
       missingRequired,
       unresolvedOptional: unresolved.filter(x => !x.required),
+      clientFollowUps,
       contradictions,
       warnings,
       auditFallback: Boolean(audit.auditFallback)
@@ -1854,7 +1831,7 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
     const data = await sessionWithAnswers(sessionId);
 
     Object.assign(data, {
-      clientName: data.client_name,
+      clientName: data.client_name || data.contact_name,
       companyName: data.company_name,
       contactName: data.contact_name,
       contactEmail: data.contact_email,
@@ -1870,7 +1847,7 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
       });
     }
 
-    const timelineValidation = validateTimelineAnswers(data.answers, { requireGoLive: true });
+    const timelineValidation = validateTimelineAnswers(data.answers, { now: data.created_at ? new Date(data.created_at) : new Date(), requireGoLive: true });
     if (!timelineValidation.valid) {
       return res.status(400).json({
         success: false,
@@ -1879,7 +1856,6 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
     }
 
     const required = [
-      'clientName',
       'companyName',
       'contactName',
       'contactEmail',

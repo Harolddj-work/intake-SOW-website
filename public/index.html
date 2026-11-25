@@ -41,6 +41,7 @@
         box-shadow: 0 8px 28px rgba(15, 23, 42, .045);
       }
       .muted { color: var(--text-muted); }
+      .required-star { color: #dc2626; font-weight: 800; }
       button { transition: background-color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
       button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
         outline: 3px solid rgba(59, 130, 246, .35);
@@ -278,15 +279,7 @@
           </p>
           <div class="grid sm:grid-cols-2 gap-4">
             <label class="text-sm font-medium"
-              >Client name *<input
-                id="clientName"
-                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
-                maxlength="150"
-                required
-                placeholder="Client or project sponsor name"
-            /></label>
-            <label class="text-sm font-medium"
-              >Company name *<input
+              >Company name <span class="required-star">*</span><input
                 id="companyName"
                 class="mt-1 w-full rounded-lg border border-slate-300 p-3"
                 maxlength="150"
@@ -294,7 +287,7 @@
                 placeholder="Company / organization"
             /></label>
             <label class="text-sm font-medium"
-              >Contact person's name *<input
+              >Contact person's name <span class="required-star">*</span><input
                 id="contactName"
                 class="mt-1 w-full rounded-lg border border-slate-300 p-3"
                 maxlength="100"
@@ -302,7 +295,7 @@
                 placeholder="Primary contact"
             /></label>
             <label class="text-sm font-medium"
-              >Contact person's email *<input
+              >Contact person's email <span class="required-star">*</span><input
                 id="contactEmail"
                 type="email"
                 class="mt-1 w-full rounded-lg border border-slate-300 p-3"
@@ -319,7 +312,7 @@
                 placeholder="e.g. Customer Experience Transformation"
             /></label>
             <label class="text-sm font-medium sm:col-span-2"
-              >Project type *<input
+              >Project type <span class="required-star">*</span><input
                 id="projectType"
                 class="mt-1 w-full rounded-lg border border-slate-300 p-3"
                 maxlength="150"
@@ -613,7 +606,7 @@
       function clearAppCache() {
         try { Object.keys(sessionStorage).filter(k => k.startsWith("sow-intake:")).forEach(k => sessionStorage.removeItem(k)); } catch (_) {}
       }
-      const detailsFields = ["clientName", "companyName", "contactName", "contactEmail", "projectName", "projectType", "projectDescription"];
+      const detailsFields = ["companyName", "contactName", "contactEmail", "projectName", "projectType", "projectDescription"];
       function detailsFromForm() {
         return {
           ...Object.fromEntries(detailsFields.map((id) => [id, $(id).value.trim()])),
@@ -655,7 +648,8 @@
         return {
           ...s,
           id: s.id ?? s.session_id,
-          clientName: s.clientName ?? s.client_name,
+          createdAt: s.createdAt ?? s.created_at,
+          clientName: s.clientName ?? s.client_name ?? s.contactName ?? s.contact_name,
           companyName: s.companyName ?? s.company_name,
           contactName: s.contactName ?? s.contact_name,
           contactEmail: s.contactEmail ?? s.contact_email,
@@ -936,9 +930,9 @@
       async function startSession(restore = false) {
         if (!restore) {
           const d = detailsFromForm();
-          for (const k of ["clientName", "companyName", "contactName", "contactEmail", "projectType"])
+          for (const k of ["companyName", "contactName", "contactEmail", "projectType"])
             if (!d[k]) {
-              $("setupError").textContent = "Please complete all five session details.";
+              $("setupError").textContent = "Please complete the company, contact name, contact email, and project type.";
               return;
             }
           if (!$("contactEmail").checkValidity()) {
@@ -951,6 +945,7 @@
           }
           const initial = {
             ...d,
+            clientName: d.contactName, // legacy database field; same as the single contact-person field
             projectName: d.projectName || "",
             checkpointIndex: 0,
             maxCheckpointIndex: 0,
@@ -1094,7 +1089,7 @@
             currentFollowUpCount++;
             $("answerInput").value = "";
             $("answerLabel").textContent = "Answer the follow-up question";
-            renderSuggestions([]);
+            renderSuggestions(ev.suggestedAnswers || []);
             addBubble(
               "ai",
               ev.followUpQuestion,
@@ -1175,7 +1170,7 @@
             if (!hitLimit && ev.followUpQuestion) {
               old.targetItemIds.forEach((id) => (session.followUpCounts[id] = (session.followUpCounts[id] || 0) + 1));
               pending = { ...old, question: ev.followUpQuestion };
-              renderSuggestions([]);
+              renderSuggestions(ev.suggestedAnswers || []);
               addBubble("ai", ev.followUpQuestion, `Follow-up ${Math.max(...old.targetItemIds.map((id) => session.followUpCounts[id]))} of ${maxFollowUps}`);
               $("answerInput").value = "";
               save();
@@ -1270,7 +1265,7 @@
 
         const summary = document.createElement('div');
         summary.className = 'rounded-xl soft p-4 text-sm';
-        summary.innerHTML = `<b>${escapeHtml(session.projectName || `${session.companyName} - ${session.projectType}`)}</b><br>${escapeHtml(session.clientName)} · ${escapeHtml(session.companyName)}<br>${escapeHtml(session.contactName)} · ${escapeHtml(session.contactEmail)}<br>Project type: ${escapeHtml(session.projectType)}`;
+        summary.innerHTML = `<b>${escapeHtml(session.projectName || `${session.companyName} - ${session.projectType}`)}</b><br>Company: ${escapeHtml(session.companyName)}<br>Contact: ${escapeHtml(session.contactName)} · ${escapeHtml(session.contactEmail)}<br>Project type: ${escapeHtml(session.projectType)}${session.projectDescription ? `<br>Project description: ${escapeHtml(session.projectDescription)}` : ''}`;
         host.appendChild(summary);
 
         const editHint = document.createElement('p');
@@ -1364,6 +1359,7 @@
           const warnings = result.warnings || [];
           const missing = result.missingRequired || [];
           const blocking = result.blockingIssues || [];
+          const clientFollowUps = result.clientFollowUps || [];
           let html = session.validationPassed
             ? '<div class="font-bold text-emerald-700">Validation review completed. The timeline checks passed. You may submit the ticket even if non-blocking discovery warnings remain.</div>'
             : '<div class="font-bold text-red-700">Submission is on hold. Please correct the date issues below, edit the affected answers, and run the check again.</div>';
@@ -1376,14 +1372,15 @@
               '<div class="mt-3"><b>Important details still missing or unverified:</b><ul class="list-disc pl-5 mt-1">' +
               missing.map((x) => `<li>${escapeHtml(x.label)}</li>`).join("") +
               "</ul></div>";
+          if (clientFollowUps.length)
+            html += '<div class="mt-3 text-amber-700"><b>Follow-up with the client:</b><ul class="list-disc pl-5">' +
+              clientFollowUps.map((x) => `<li>${escapeHtml(x)}</li>`).join("") + '</ul></div>';
           if (warnings.length)
-            html +=
-              '<div class="mt-3 text-amber-700"><b>Warnings for the project team:</b><ul class="list-disc pl-5">' +
-              warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join("") +
-              "</ul></div>";
-          if (!warnings.length && !missing.length) html += '<p class="mt-2">No outstanding warnings were identified.</p>';
+            html += '<div class="mt-3 text-amber-700"><b>Items to review:</b><ul class="list-disc pl-5">' +
+              warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join("") + '</ul></div>';
+          if (!warnings.length && !missing.length && !clientFollowUps.length) html += '<p class="mt-2">No outstanding issues were identified.</p>';
           html += session.validationPassed
-            ? '<p class="mt-3 text-sm font-semibold">Submitting will include any remaining non-blocking warnings in the Zendesk ticket for follow-up.</p>'
+            ? '<p class="mt-3 text-sm font-semibold">The ticket can be submitted. Any client follow-up items will be clearly listed in Zendesk.</p>'
             : '<p class="mt-3 text-sm font-semibold text-red-700">The submit button will remain disabled until the date corrections pass validation.</p>';
           $("validationResults").innerHTML = html;
           $("submitTicketBtn").disabled = !session.validationPassed;
@@ -1549,7 +1546,7 @@
         const owner = item.owner?.full_name || item.owner_name || item.owner_email || item.profiles?.full_name || "Employee";
         const status = item.status || "in_progress";
         const progress = Number(item.checkpoint_index ?? item.checkpointIndex ?? 0);
-        return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · ${escapeHtml(item.client_name || item.clientName || "Client not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
+        return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · Contact: ${escapeHtml(item.contact_name || item.contactName || "Not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
       }
       function renderMySessions() {
         const host = $("mySessionsList");
