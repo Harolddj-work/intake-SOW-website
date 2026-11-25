@@ -127,27 +127,34 @@ function validateTimelineAnswers(answers, options = {}) {
   for (const record of records) {
     const recordUnknown = record.status === 'unknown' || record.evaluation?.disposition === 'unknown';
     const ids = record.coveredItemIds || record.covered_item_ids || record.handledItemIds || record.handled_item_ids || [];
-    const answerText = [record.answer, record.followUpAnswer || record.follow_up_answer].filter(Boolean).join(' ');
+    // Keep the original answer and each follow-up separate. A follow-up is a
+    // later correction, so its date must take precedence over the original date
+    // instead of dateFromKeyword accidentally returning the first/original date.
+    const answerTexts = [record.answer, record.followUpAnswer || record.follow_up_answer]
+      .filter(value => typeof value === 'string' && value.trim());
     if (recordUnknown && ids.includes('start_date')) startIsClientUnknown = true;
     if (recordUnknown && ids.includes('go_live')) goLiveIsClientUnknown = true;
-    const mentions = parseDateMentions(answerText);
-    allMentions.push(...mentions);
     const hasStartTarget = ids.includes('start_date') || /start(?:ing)?(?: interview)?(?: date)?|project start(?:s)?/i.test(String(record.question || ''));
-    const hasGoLiveTarget = ids.includes('go_live') || /go[\s-]?live|launch date/i.test(String(record.question || '')) || /go[\s-]?live|launch date/i.test(answerText);
-    const explicitStart = dateFromKeyword(answerText, /start(?:ing)?(?: interview)?(?: date)?|project start(?:s)?/i);
-    const explicitGoLive = dateFromKeyword(answerText, /go[\s-]?live(?: date)?|launch date/i);
+    const hasGoLiveTarget = ids.includes('go_live') || /go[\s-]?live|launch date/i.test(String(record.question || '')) || answerTexts.some(text => /go[\s-]?live|launch date/i.test(text));
 
-    if (hasStartTarget) {
-      if (explicitStart) startMentions.push(explicitStart);
-      else if (!/go[\s-]?live|launch date/i.test(answerText)) startMentions.push(...mentions.slice(0, 1));
-      else if (ids.includes('start_date') && !ids.includes('go_live')) startMentions.push(...mentions.slice(0, 1));
+    for (const answerText of answerTexts) {
+      const mentions = parseDateMentions(answerText);
+      allMentions.push(...mentions);
+      const explicitStart = dateFromKeyword(answerText, /start(?:ing)?(?: interview)?(?: date)?|project start(?:s)?/i);
+      const explicitGoLive = dateFromKeyword(answerText, /go[\s-]?live(?: date)?|launch date/i);
+
+      if (hasStartTarget) {
+        if (explicitStart) startMentions.push(explicitStart);
+        else if (!/go[\s-]?live|launch date/i.test(answerText)) startMentions.push(...mentions.slice(0, 1));
+        else if (ids.includes('start_date') && !ids.includes('go_live')) startMentions.push(...mentions.slice(0, 1));
+      }
+      if (hasGoLiveTarget) {
+        if (explicitGoLive) goLiveMentions.push(explicitGoLive);
+        else if (hasStartTarget && !explicitStart) goLiveMentions.push(...(mentions.length > 1 ? mentions.slice(1, 2) : mentions));
+        else goLiveMentions.push(...mentions);
+      }
     }
-    if (hasGoLiveTarget) {
-      if (explicitGoLive) goLiveMentions.push(explicitGoLive);
-      else if (hasStartTarget && !explicitStart) goLiveMentions.push(...(mentions.length > 1 ? mentions.slice(1, 2) : mentions));
-      else goLiveMentions.push(...mentions);
-      goLiveWasRequested = true;
-    }
+    if (hasGoLiveTarget) goLiveWasRequested = true;
   }
 
   const allDates = mergeDateMentions(allMentions);
@@ -189,14 +196,19 @@ function validateTimelineAnswers(answers, options = {}) {
     if (!startDate) {
       if (!startIsClientUnknown) addIssue('start_date', 'The project start date is not a valid calendar date. Please provide a valid month/year or day/month/year.');
     } else {
-      const now = options.now instanceof Date ? options.now : new Date();
-      const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      const submittedAt = options.submissionDate instanceof Date
+        ? options.submissionDate
+        : (options.submissionDate || options.createdAt || options.now)
+          ? new Date(options.submissionDate || options.createdAt || options.now)
+          : new Date();
+      const today = new Date(Date.UTC(submittedAt.getUTCFullYear(), submittedAt.getUTCMonth(), submittedAt.getUTCDate()));
       const minimumStart = new Date(today.getTime());
       minimumStart.setUTCDate(minimumStart.getUTCDate() + 14);
-      const startMonthEnd = startMention.day ? startDate : new Date(Date.UTC(startMention.year, startMention.month, 0));
-      const startTooSoon = startMonthEnd < minimumStart;
+      // Month/year-only answers represent the first day of that month. Do not
+      // accept a month merely because its final day falls after the threshold.
+      const startTooSoon = startDate < minimumStart;
       if (startTooSoon && !startIsClientUnknown) {
-        addIssue('start_date', `The project start date must be at least 2 weeks after this intake form was created (${formatDateOnly(today)}). Please choose a later date or a later month and year.`);
+        addIssue('start_date', `The project start date must be at least 14 days after this intake form was created (${formatDateOnly(today)}). Please choose a later date. For month/year-only answers, the first day of that month must meet the 14-day minimum.`);
       }
 
       if (goLiveWasRequested && !goLiveIsClientUnknown && !startIsClientUnknown) {

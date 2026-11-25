@@ -1636,13 +1636,30 @@ app.post('/api/evaluate-dynamic-answer', async (req, res) => {
       });
     }
 
+    // Always use the database-created session timestamp as the authoritative
+    // intake date. Never trust a browser-provided createdAt/created_at value.
+    const sessionId = sessionDetails?.id || sessionDetails?.session_id;
+    if (!sessionId) {
+      return res.status(400).json({ success: false, error: 'A valid session is required to evaluate this answer.' });
+    }
+    const storedSession = await getSessionRecord(sessionId);
+    if (!storedSession) {
+      return res.status(404).json({ success: false, error: 'Session not found.' });
+    }
+    const trustedSessionDetails = {
+      ...(sessionDetails || {}),
+      id: storedSession.id,
+      createdAt: storedSession.created_at,
+      created_at: storedSession.created_at
+    };
+
     const result = await evaluateAnswer({
       checkpointId,
       question,
       answer,
       projectType,
       projectDescription,
-      sessionDetails,
+      sessionDetails: trustedSessionDetails,
       history,
       targetItemIds,
       followUpCounts
@@ -1721,7 +1738,18 @@ app.post('/api/validate-intake', async (req, res) => {
         required: requiredForStart.includes(item.id)
       }));
 
-    const timelineValidation = validateTimelineAnswers(data.answers, { now: data.created_at ? new Date(data.created_at) : new Date(), requireGoLive: true });
+    const sessionId = data.id || data.sessionId || data.session_id;
+    if (!sessionId) {
+      return res.status(400).json({ success: false, error: 'A valid session is required for timeline validation.' });
+    }
+    const storedSession = await getSessionRecord(sessionId);
+    if (!storedSession) {
+      return res.status(404).json({ success: false, error: 'Session not found.' });
+    }
+    const timelineValidation = validateTimelineAnswers(data.answers, {
+      submissionDate: storedSession.created_at,
+      requireGoLive: true
+    });
     for (const id of timelineValidation.invalidItemIds) {
       if (!missingRequired.some(item => item.id === id)) {
         const cp = checkpoints.find(checkpoint => checkpoint.id === 'delivery');
@@ -1847,7 +1875,10 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
       });
     }
 
-    const timelineValidation = validateTimelineAnswers(data.answers, { now: data.created_at ? new Date(data.created_at) : new Date(), requireGoLive: true });
+    const timelineValidation = validateTimelineAnswers(data.answers, {
+      submissionDate: storedSession.created_at,
+      requireGoLive: true
+    });
     if (!timelineValidation.valid) {
       return res.status(400).json({
         success: false,
