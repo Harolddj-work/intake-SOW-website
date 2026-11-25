@@ -188,14 +188,36 @@
           /></label>
           <button id="loginBtn" class="w-full rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Sign in</button>
           <p id="loginError" class="text-sm text-red-600" role="alert"></p>
+          <p id="inviteSuccess" class="hidden text-sm text-emerald-700 mt-2" role="status" aria-live="polite">Password created successfully. Please sign in with your new password.</p>
         </form>
         <div id="invitePasswordPanel" class="hidden border-t borderline mt-6 pt-5">
           <h3 class="font-semibold">Complete your invited account</h3>
           <p class="muted text-sm mt-1 mb-3">Choose a password to activate your account.</p>
           <label class="block text-sm font-medium"
-            >New password<input id="invitePassword" type="password" minlength="8" class="field mt-1" autocomplete="new-password"
+            >New password<input id="invitePassword" type="password" minlength="12" class="field mt-1" autocomplete="new-password" aria-describedby="invitePasswordStrength invitePasswordChecklist"
           /></label>
-          <button id="setInvitePasswordBtn" class="mt-3 w-full rounded-lg bg-emerald-700 text-white px-5 py-3 font-semibold">Set password and continue</button>
+          <div id="invitePasswordStrength" class="mt-3" aria-live="polite">
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="muted font-medium">Password strength</span>
+              <span id="invitePasswordStrengthLabel" class="font-semibold text-red-600">Weak</span>
+            </div>
+            <div class="h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div id="invitePasswordStrengthBar" class="h-full rounded-full bg-red-500" style="width: 0%; transition: width .2s ease, background-color .2s ease"></div>
+            </div>
+          </div>
+          <div id="invitePasswordChecklist" class="mt-3 rounded-lg bg-slate-50 p-3 text-sm space-y-2">
+            <p class="font-semibold mb-1">Password security checklist</p>
+            <p id="inviteRuleLength" class="text-red-600">✗ At least 12 characters</p>
+            <p id="inviteRuleUpper" class="text-red-600">✗ At least one uppercase letter (A–Z)</p>
+            <p id="inviteRuleLower" class="text-red-600">✗ At least one lowercase letter (a–z)</p>
+            <p id="inviteRuleNumber" class="text-red-600">✗ At least one number (0–9)</p>
+            <p id="inviteRuleSpecial" class="text-red-600">✗ At least one special character</p>
+          </div>
+          <label class="block text-sm font-medium mt-4"
+            >Confirm new password<input id="invitePasswordConfirm" type="password" minlength="12" class="field mt-1" autocomplete="new-password" aria-describedby="invitePasswordMatch"
+          /></label>
+          <p id="invitePasswordMatch" class="text-xs muted mt-1" aria-live="polite">Enter the same password again to confirm it.</p>
+          <button id="setInvitePasswordBtn" disabled class="mt-3 w-full rounded-lg bg-emerald-700 text-white px-5 py-3 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">Set password</button>
           <p id="inviteError" class="text-sm text-red-600 mt-2" role="alert"></p>
         </div>
       </div>
@@ -527,6 +549,7 @@
     <script>
       const $ = (id) => document.getElementById(id);
       let supabaseClient = null;
+      let isInviteFlow = false;
       let config = null,
         session = null,
         pending = null,
@@ -647,7 +670,9 @@
           return await task();
         } finally {
           button.innerHTML = originalHtml;
-          button.disabled = false;
+          button.disabled = button.id === "setInvitePasswordBtn"
+            ? !updateInvitePasswordFeedback()
+            : false;
           button.removeAttribute("aria-busy");
         }
       }
@@ -1553,6 +1578,17 @@
         });
       }
       async function showAuthenticatedApp() {
+        // Invitation links are setup-only. Never let an invitation session enter the workspace.
+        if (isInviteFlow) {
+          show("authLoading", false);
+          show("appScreen", false);
+          show("loginScreen", true);
+          show("invitePasswordPanel", true);
+          $("loginForm").classList.add("hidden");
+          show("logoutBtn", false);
+          show("userBadge", false);
+          return;
+        }
         show("authLoading", true);
         show("loginScreen", false);
         show("appScreen", false);
@@ -1565,7 +1601,26 @@
             show("userBadge", false);
             return;
           }
-          const me = await api("/api/me", undefined, "GET");
+          let me;
+          try {
+            me = await api("/api/me", undefined, "GET");
+          } catch (profileError) {
+            // Never leave a pending/ineligible account with an active browser session.
+            await supabaseClient.auth.signOut();
+            session = null;
+            currentUser = null;
+            currentRole = null;
+            clearAppCache();
+            throw profileError;
+          }
+          if (me.profile?.password_setup_completed !== true) {
+            await supabaseClient.auth.signOut();
+            session = null;
+            currentUser = null;
+            currentRole = null;
+            clearAppCache();
+            throw new Error("Your account is pending setup. Complete your invitation password setup before signing in.");
+          }
           currentUser = { ...(me.user || me), ...(me.profile || {}) };
           currentRole = me.role || me.profile?.role || currentUser.role;
           if (!["admin", "presales"].includes(currentRole)) throw new Error("Your account does not have an application role. Contact an administrator.");
@@ -1605,6 +1660,7 @@
         e.preventDefault();
         const btn = $("loginBtn");
         $("loginError").textContent = "";
+        show("inviteSuccess", false);
         await withButtonLoading(btn, "Signing in…", async () => {
         try {
           const { error } = await supabaseClient.auth.signInWithPassword({
@@ -1619,6 +1675,57 @@
         }
         });
       });
+      function invitePasswordChecks(password) {
+        return {
+          length: password.length >= 12,
+          upper: /[A-Z]/.test(password),
+          lower: /[a-z]/.test(password),
+          number: /[0-9]/.test(password),
+          special: /[^A-Za-z0-9\s]/.test(password),
+        };
+      }
+      function updateInvitePasswordFeedback() {
+        const password = $("invitePassword").value;
+        const confirmation = $("invitePasswordConfirm").value;
+        const checks = invitePasswordChecks(password);
+        const rules = [
+          ["length", "inviteRuleLength", "At least 12 characters"],
+          ["upper", "inviteRuleUpper", "At least one uppercase letter (A–Z)"],
+          ["lower", "inviteRuleLower", "At least one lowercase letter (a–z)"],
+          ["number", "inviteRuleNumber", "At least one number (0–9)"],
+          ["special", "inviteRuleSpecial", "At least one special character"],
+        ];
+        const passed = rules.filter(([key]) => checks[key]).length;
+        for (const [key, id, label] of rules) {
+          const item = $(id);
+          item.textContent = `${checks[key] ? "✓" : "✗"} ${label}`;
+          item.classList.toggle("text-emerald-700", checks[key]);
+          item.classList.toggle("text-red-600", !checks[key]);
+        }
+        const strengthLabel = passed <= 2 ? "Weak" : passed === 3 ? "Fair" : passed === 4 ? "Good" : "Strong";
+        const strengthColors = {
+          Weak: ["#ef4444", "text-red-600"],
+          Fair: ["#f97316", "text-orange-600"],
+          Good: ["#eab308", "text-yellow-600"],
+          Strong: ["#16a34a", "text-emerald-700"],
+        };
+        const [barColor, labelClass] = strengthColors[strengthLabel];
+        $("invitePasswordStrengthBar").style.width = `${(passed / 5) * 100}%`;
+        $("invitePasswordStrengthBar").style.backgroundColor = barColor;
+        $("invitePasswordStrengthLabel").textContent = password ? strengthLabel : "Not entered";
+        $("invitePasswordStrengthLabel").className = `font-semibold ${password ? labelClass : "muted"}`;
+        const matches = Boolean(password && confirmation && password === confirmation);
+        $("invitePasswordMatch").textContent = !confirmation
+          ? "Enter the same password again to confirm it."
+          : matches ? "✓ Passwords match." : "✗ Passwords do not match.";
+        $("invitePasswordMatch").className = `text-xs mt-1 ${matches ? "text-emerald-700" : confirmation ? "text-red-600" : "muted"}`;
+        const secure = Object.values(checks).every(Boolean);
+        $("setInvitePasswordBtn").disabled = !(secure && matches);
+        return secure && matches;
+      }
+      $("invitePassword").addEventListener("input", updateInvitePasswordFeedback);
+      $("invitePasswordConfirm").addEventListener("input", updateInvitePasswordFeedback);
+
       $("logoutBtn").onclick = async () => {
         await supabaseClient.auth.signOut();
         session = null;
@@ -1632,18 +1739,50 @@
         $("loginPassword").value = "";
       };
       $("setInvitePasswordBtn").onclick = async () => {
-        try {
-          const password = $("invitePassword").value;
-          if (password.length < 8) throw new Error("Use at least 8 characters.");
-          const { error } = await supabaseClient.auth.updateUser({ password });
-          if (error) throw error;
-          await api("/api/me/password-setup", { completed: true }, "PATCH");
-          show("invitePasswordPanel", false);
-          $("loginForm").classList.remove("hidden");
-          await showAuthenticatedApp();
-        } catch (e) {
-          $("inviteError").textContent = e.message;
-        }
+        const button = $("setInvitePasswordBtn");
+        $("inviteError").textContent = "";
+        show("inviteSuccess", false);
+        await withButtonLoading(button, "Creating password…", async () => {
+          try {
+            const password = $("invitePassword").value;
+            const confirmation = $("invitePasswordConfirm").value;
+            if (password !== confirmation) throw new Error("The new password and confirmation do not match.");
+            if (!Object.values(invitePasswordChecks(password)).every(Boolean)) {
+              throw new Error("Your password must meet every item in the security checklist.");
+            }
+
+            const { data, error } = await supabaseClient.auth.updateUser({ password });
+            if (error) throw error;
+
+            // Complete the profile update while the one-time invitation session is valid.
+            await api("/api/me/password-setup", { completed: true }, "PATCH");
+
+            const invitedEmail = data?.user?.email || "";
+            // Revoke the temporary invite session. A fresh, manual password login is required.
+            const { error: signOutError } = await supabaseClient.auth.signOut();
+            if (signOutError) throw signOutError;
+
+            isInviteFlow = false;
+            clearAppCache();
+            history.replaceState(null, "", location.pathname + location.search);
+            show("authLoading", false);
+            show("appScreen", false);
+            show("invitePasswordPanel", false);
+            show("loginScreen", true);
+            $("loginForm").classList.remove("hidden");
+            if (invitedEmail) $("loginEmail").value = invitedEmail;
+            $("loginPassword").value = "";
+            $("invitePassword").value = "";
+            $("invitePasswordConfirm").value = "";
+            updateInvitePasswordFeedback();
+            $("loginError").textContent = "";
+            show("logoutBtn", false);
+            show("userBadge", false);
+            show("inviteSuccess", true);
+          } catch (e) {
+            $("inviteError").textContent = e.message || "Unable to create your password.";
+          }
+        });
       };
       $("discoveryTabBtn").onclick = () => setTab("discovery");
       $("sessionManagerTabBtn").onclick = async () => {
@@ -1720,7 +1859,9 @@
           config = await r.json();
           if (!config.checkpoints) throw new Error("Config unavailable");
           const inviteLink = location.hash.includes("type=invite");
+          isInviteFlow = inviteLink;
           if (inviteLink) {
+            // Do not inspect an existing session or route to the workspace on invitation URLs.
             show("authLoading", false);
             show("loginScreen", true);
             show("appScreen", false);
@@ -1736,6 +1877,7 @@
               session = null;
               currentUser = null;
               currentRole = null;
+              clearAppCache();
               show("appScreen", false);
               show("loginScreen", true);
               show("logoutBtn", false);

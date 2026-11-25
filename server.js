@@ -98,7 +98,7 @@ async function requireAuth(req, res, next) {
     const { data: profile, error: profileError } =
       await userDb
         .from('profiles')
-        .select('id, role, is_active')
+        .select('id, role, is_active, password_setup_completed')
         .eq('id', data.user.id)
         .single();
 
@@ -109,10 +109,23 @@ async function requireAuth(req, res, next) {
       });
     }
 
+    // Pending invitees may call only the password-setup completion endpoint.
+    // Every other protected API route is denied until setup is complete.
+    const isPasswordSetupRoute =
+      req.method === 'PATCH' && req.path === '/api/me/password-setup';
+    if (!profile.password_setup_completed && !isPasswordSetupRoute) {
+      return res.status(403).json({
+        success: false,
+        code: 'ACCOUNT_SETUP_PENDING',
+        error: 'Your account is pending setup. Create your password using your invitation link before signing in.'
+      });
+    }
+
     req.user = {
       id: data.user.id,
       email: data.user.email,
-      role: profile.role
+      role: profile.role,
+      password_setup_completed: Boolean(profile.password_setup_completed)
     };
 
     req.db = userDb;
@@ -277,7 +290,7 @@ app.get('/api/me', requireAuth, async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, role, is_active')
+      .select('id, full_name, role, is_active, password_setup_completed')
       .eq('id', req.user.id)
       .single();
 
@@ -286,7 +299,7 @@ app.get('/api/me', requireAuth, async (req, res) => {
     res.json({
       success: true,
       user: { id: req.user.id, email: req.user.email },
-      profile,
+      profile: { ...profile, password_setup_completed: Boolean(profile.password_setup_completed) },
       role: profile.role
     });
   } catch (error) {
@@ -876,6 +889,9 @@ app.get('/api/admin/employees', requireAuth, requireAdmin, async (_req, res) => 
 // Mark the invited account as fully set up after the user chooses a password.
 app.patch('/api/me/password-setup', requireAuth, async (req, res) => {
   try {
+    if (req.user.password_setup_completed) {
+      return res.status(409).json({ success: false, error: 'Password setup has already been completed.' });
+    }
     if (req.body?.completed !== true) {
       return res.status(400).json({ success: false, error: 'Password setup confirmation is required.' });
     }
@@ -1953,7 +1969,11 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`SOW Intake Server running at http://localhost:${PORT}`);
+// Start server on all network interfaces so devices on the same Wi-Fi can connect.
+const HOST = process.env.HOST || '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
+  console.log(`SOW Intake Server listening on ${HOST}:${PORT}`);
+  console.log(`Local:   http://localhost:${PORT}`);
+  console.log(`Network: http://192.168.68.100:${PORT}`);
 });
