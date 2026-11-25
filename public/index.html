@@ -9,22 +9,55 @@
     <style>
       :root {
         color-scheme: light;
+        --page-bg: #f4f7fb;
+        --panel-bg: #ffffff;
+        --panel-border: #e5eaf2;
+        --text-main: #172033;
+        --text-muted: #64748b;
+        --accent: #315fe8;
       }
 
+      body {
+        background: var(--page-bg);
+        color: var(--text-main);
+        transition: background-color .2s ease, color .2s ease;
+      }
       body.dark {
-        background: #0f172a;
-        color: #e2e8f0;
+        --page-bg: #0b1220;
+        --panel-bg: #152238;
+        --panel-border: #2b3b54;
+        --text-main: #e5edf8;
+        --text-muted: #a9b8cc;
+        --accent: #7da2ff;
+        background: var(--page-bg);
+        color: var(--text-main);
         color-scheme: dark;
       }
 
       .panel {
-        background: #fff;
-        border: 1px solid #e2e8f0;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 1rem;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, .045);
       }
+      .muted { color: var(--text-muted); }
+      button { transition: background-color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
+      button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+        outline: 3px solid rgba(59, 130, 246, .35);
+        outline-offset: 2px;
+      }
+      .theme-toggle {
+        display: inline-flex; align-items: center; justify-content: center; gap: .55rem;
+        min-width: 2.75rem; min-height: 2.5rem; border: 1px solid rgba(203,213,225,.35);
+        border-radius: .8rem; padding: .55rem .8rem; background: rgba(255,255,255,.08);
+        color: #fff; font-weight: 600;
+      }
+      .theme-toggle:hover { background: rgba(255,255,255,.16); }
 
       body.dark .panel {
-        background: #1e293b;
-        border-color: #334155;
+        background: var(--panel-bg);
+        border-color: var(--panel-border);
+        box-shadow: 0 10px 30px rgba(0,0,0,.18);
       }
 
       body.dark .muted {
@@ -53,28 +86,26 @@
       }
 
       .suggestion-chip {
-        background: #dbeafe !important;
-        color: #1e3a8a !important;
-        border: 2px solid #3b82f6 !important;
-        font-weight: 700 !important;
-        box-shadow: 0 2px 5px rgba(30, 64, 175, 0.16);
-        white-space: normal;
-        text-align: left;
+        display: block; width: 100%; background: #f1f5ff !important;
+        color: #263b70 !important; border: 1px solid #d5def7 !important;
+        border-radius: .85rem !important; font-weight: 500 !important;
+        padding: .8rem 1rem !important; line-height: 1.5;
+        box-shadow: none; white-space: normal; text-align: left;
       }
+      .suggestion-chip::before { content: "＋"; color: #315fe8; font-weight: 700; margin-right: .55rem; }
+      .suggestion-chip:hover { border-color: #8ba5f5 !important; background: #e8efff !important; transform: translateY(-1px); }
+      #suggestionButtons { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: .65rem; }
 
       .suggestion-chip:hover {
         background: #bfdbfe !important;
       }
 
       body.dark .suggestion-chip {
-        background: #1e3a8a !important;
-        color: #eff6ff !important;
-        border-color: #60a5fa !important;
+        background: #1b2b46 !important; color: #e2eaff !important;
+        border-color: #3a5278 !important;
       }
-
-      body.dark .suggestion-chip:hover {
-        background: #1d4ed8 !important;
-      }
+      body.dark .suggestion-chip::before { color: #9bb6ff; }
+      body.dark .suggestion-chip:hover { background: #243b60 !important; border-color: #7899dc !important; }
 
       button:disabled {
         opacity: 0.65;
@@ -151,53 +182,14 @@
       body.dark .shadow-sm, body.dark .shadow { box-shadow: 0 8px 24px rgba(0,0,0,.22); }
       body.dark option { background: #172338; color: #e5edf8; }
       body.dark .loading-panel { background: #172d4b; border-color: #31547b; color: #dbeafe; }
-
-
-      /* Consistent workspace typography, spacing, and status feedback */
-      body {
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        line-height: 1.5;
-        letter-spacing: -0.01em;
+      .field, #answerInput, #checkpointNote { transition: border-color .15s ease, box-shadow .15s ease; }
+      .field:focus, #answerInput:focus, #checkpointNote:focus { border-color: #6b8df1; box-shadow: 0 0 0 3px rgba(49,95,232,.12); outline: none; }
+      #answerArea { border-color: var(--panel-border); }
+      @media (max-width: 640px) {
+        header .max-w-6xl { align-items: flex-start; }
+        #themeLabel { display: none; }
+        .panel { border-radius: .9rem; }
       }
-      .panel {
-        border-radius: 1rem;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
-      }
-      button {
-        transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
-      }
-      button:not(:disabled):active { transform: translateY(1px); }
-      input:not([type="checkbox"]), textarea, select {
-        min-height: 2.75rem;
-        border-radius: .65rem;
-        line-height: 1.45;
-      }
-      textarea { resize: vertical; }
-      #checkpointTitle { letter-spacing: -0.025em; }
-      #checkpointPills button {
-        min-height: 2rem;
-        border: 1px solid rgba(148, 163, 184, .28);
-        font-weight: 600;
-      }
-      #progressBar { min-width: 0; }
-      #answerError, #setupError { font-weight: 500; }
-      #validationResults { background: #fff; }
-      body.dark .validationResults,
-      body.dark #validationResults { background: #172338; }
-      body.dark .panel { box-shadow: 0 12px 28px rgba(0, 0, 0, .18); }
-      body.dark #validationResults { background: #172338; }
-
-      /* Consistent form controls and accessible interaction states */
-      .theme-toggle { flex: 0 0 auto; line-height: 1; }
-      button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
-        outline: 3px solid rgba(14, 165, 233, .45);
-        outline-offset: 2px;
-      }
-      #validationResults { line-height: 1.55; }
-      #validationResults:empty { display: none; }
-      #submitStatus { line-height: 1.5; }
-      body.dark .bg-red-50 { background: #3b1720 !important; color: #fecaca !important; }
-      body.dark .border-red-300 { border-color: #7f1d1d !important; }
     </style>
   </head>
 
@@ -211,7 +203,7 @@
         </div>
         <div class="flex items-center gap-2">
           <span id="userBadge" class="hidden text-sm text-slate-200"></span
-          ><button id="themeBtn" type="button" class="theme-toggle border border-slate-500 rounded-lg w-10 h-10 inline-flex items-center justify-center text-xl hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300" title="Switch to dark mode" aria-label="Switch to dark mode"><span id="themeIcon" aria-hidden="true">☾</span></button
+          ><button id="themeBtn" type="button" class="theme-toggle text-sm" aria-label="Switch to dark mode" title="Switch theme"><span id="themeIcon" aria-hidden="true">☾</span><span class="hidden sm:inline" id="themeLabel">Dark mode</span></button
           ><button id="logoutBtn" class="hidden border border-slate-500 rounded-lg px-3 py-2 text-sm">Sign out</button>
         </div>
       </div>
@@ -285,6 +277,14 @@
             Enter the fixed meeting details. All project questions will be generated dynamically from the project context and your answers.
           </p>
           <div class="grid sm:grid-cols-2 gap-4">
+            <label class="text-sm font-medium"
+              >Client name *<input
+                id="clientName"
+                class="mt-1 w-full rounded-lg border border-slate-300 p-3"
+                maxlength="150"
+                required
+                placeholder="Client or project sponsor name"
+            /></label>
             <label class="text-sm font-medium"
               >Company name *<input
                 id="companyName"
@@ -368,8 +368,8 @@
                 <div class="text-xs muted">Six checkpoints total</div>
               </div>
             </div>
-            <div class="h-2 rounded-full bg-slate-200 mt-4 overflow-hidden" role="progressbar" aria-label="Discovery checkpoint progress" aria-valuemin="0" aria-valuemax="6" aria-valuenow="1">
-              <div id="progressBar" class="h-full bg-blue-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <div class="h-2 rounded-full bg-slate-200 mt-4 overflow-hidden">
+              <div id="progressBar" class="h-full bg-blue-600 rounded-full" style="width: 0%"></div>
             </div>
             <div id="checkpointPills" class="flex flex-wrap gap-2 mt-4"></div>
           </div>
@@ -392,7 +392,7 @@
                 placeholder="Capture the client's answer..."
               ></textarea>
               <div id="suggestedAnswers" class="mt-3">
-                <div class="text-xs font-semibold muted mb-2">Suggested answer starters · click to insert, then edit as needed</div>
+                <div class="text-xs font-semibold muted mb-2">Sample answer templates · click to insert, then replace the bracketed parts with the client’s actual details</div>
                 <div id="suggestionButtons" class="flex flex-wrap gap-2"></div>
               </div>
               <div class="flex flex-wrap gap-2 mt-3">
@@ -613,12 +613,10 @@
       function clearAppCache() {
         try { Object.keys(sessionStorage).filter(k => k.startsWith("sow-intake:")).forEach(k => sessionStorage.removeItem(k)); } catch (_) {}
       }
-      const detailsFields = ["companyName", "contactName", "contactEmail", "projectName", "projectType", "projectDescription"];
+      const detailsFields = ["clientName", "companyName", "contactName", "contactEmail", "projectName", "projectType", "projectDescription"];
       function detailsFromForm() {
-        const details = Object.fromEntries(detailsFields.map((id) => [id, $(id).value.trim()]));
-        details.clientName = details.contactName; // Legacy alias; no separate Client name input.
         return {
-          ...details,
+          ...Object.fromEntries(detailsFields.map((id) => [id, $(id).value.trim()])),
           visibility: $("sessionVisibility").value,
           team_id: $("sessionVisibility").value === "team" ? $("sessionTeam").value : null,
         };
@@ -657,8 +655,7 @@
         return {
           ...s,
           id: s.id ?? s.session_id,
-          // Legacy compatibility: the old Client name field duplicated the primary contact.
-          clientName: s.contactName ?? s.contact_name ?? s.clientName ?? s.client_name,
+          clientName: s.clientName ?? s.client_name,
           companyName: s.companyName ?? s.company_name,
           contactName: s.contactName ?? s.contact_name,
           contactEmail: s.contactEmail ?? s.contact_email,
@@ -753,8 +750,7 @@
         saveTimer = setTimeout(async () => {
           try {
             const metadata = {
-              // Keep the existing database column populated without asking users twice.
-              client_name: session.contactName || session.clientName,
+              client_name: session.clientName,
               company_name: session.companyName,
               contact_name: session.contactName,
               contact_email: session.contactEmail,
@@ -828,8 +824,7 @@
         $("checkpointCount").textContent = `Checkpoint ${session.checkpointIndex + 1} of 6`;
         $("checkpointHint").textContent = `${cp.items.length} information areas · AI-generated questions`;
         show("backBtn", session.checkpointIndex > 0);
-        $("progressBar").style.width = `${((session.checkpointIndex + 1) / 6) * 100}%`;
-        $("progressBar").parentElement.setAttribute("aria-valuenow", String(session.checkpointIndex + 1));
+        $("progressBar").style.width = `${(session.checkpointIndex / 6) * 100}%`;
         renderPills();
       }
       async function publicApi(url, body) {
@@ -941,9 +936,9 @@
       async function startSession(restore = false) {
         if (!restore) {
           const d = detailsFromForm();
-          for (const k of ["companyName", "contactName", "contactEmail", "projectType"])
+          for (const k of ["clientName", "companyName", "contactName", "contactEmail", "projectType"])
             if (!d[k]) {
-              $("setupError").textContent = "Please complete the company, primary contact name, contact email, and project type.";
+              $("setupError").textContent = "Please complete all five session details.";
               return;
             }
           if (!$("contactEmail").checkValidity()) {
@@ -993,7 +988,6 @@
           if (!session.id) throw new Error("The session API did not return a session ID.");
         } else {
           detailsFields.forEach((k) => ($(k).value = session[k] || ""));
-          session.clientName = session.contactName || session.clientName || "";
           $("sessionVisibility").value = session.visibility || "private";
           $("sessionTeam").value = session.team_id || "";
         }
@@ -1075,7 +1069,8 @@
             return;
           }
           const targetIds = pending.targetItemIds;
-          const maxReached = targetIds.every((id) => (session.followUpCounts[id] || 0) >= 2);
+          const maxFollowUps = Number(config.maxFollowUpsPerItem || 3);
+          const maxReached = targetIds.every((id) => (session.followUpCounts[id] || 0) >= maxFollowUps);
           if (!maxReached && ev.followUpQuestion) {
             targetIds.forEach((id) => (session.followUpCounts[id] = (session.followUpCounts[id] || 0) + 1));
             const entry = {
@@ -1084,7 +1079,7 @@
               answer,
               status: "answered",
               coveredItemIds: covered,
-              handledItemIds: [],
+              handledItemIds: targetIds,
               mainPoint: ev.mainPoint || answer,
               evaluation: ev,
               followUpQuestion: ev.followUpQuestion,
@@ -1103,7 +1098,7 @@
             addBubble(
               "ai",
               ev.followUpQuestion,
-              `Follow-up ${Math.max(...targetIds.map((id) => session.followUpCounts[id]))} of 2 for the targeted checklist item(s)`,
+              `Follow-up ${Math.max(...targetIds.map((id) => session.followUpCounts[id]))} of ${maxFollowUps} for the targeted checklist item(s)`,
             );
             save();
           } else {
@@ -1175,12 +1170,13 @@
             show("answerArea", false);
             await askNext();
           } else {
-            const hitLimit = old.targetItemIds.every((id) => (session.followUpCounts[id] || 0) >= 2);
+            const maxFollowUps = Number(config.maxFollowUpsPerItem || 3);
+            const hitLimit = old.targetItemIds.every((id) => (session.followUpCounts[id] || 0) >= maxFollowUps);
             if (!hitLimit && ev.followUpQuestion) {
               old.targetItemIds.forEach((id) => (session.followUpCounts[id] = (session.followUpCounts[id] || 0) + 1));
               pending = { ...old, question: ev.followUpQuestion };
               renderSuggestions([]);
-              addBubble("ai", ev.followUpQuestion, "Final allowed follow-up");
+              addBubble("ai", ev.followUpQuestion, `Follow-up ${Math.max(...old.targetItemIds.map((id) => session.followUpCounts[id]))} of ${maxFollowUps}`);
               $("answerInput").value = "";
               save();
             } else {
@@ -1200,40 +1196,152 @@
           setBusy(false);
         }
       }
+      async function saveEditedAnswer(answerIndex, editedText, errorHost, saveButton) {
+        const entry = session.answers[answerIndex];
+        if (!entry || !editedText.trim()) {
+          errorHost.textContent = 'Please enter an updated answer.';
+          return;
+        }
+        const cp = config.checkpoints.find(item => item.id === entry.checkpointId);
+        const allowedIds = new Set((cp?.items || []).map(item => item.id));
+        const targetIds = [...new Set([
+          ...(entry.handledItemIds || []),
+          ...(entry.coveredItemIds || [])
+        ])].filter(id => allowedIds.has(id));
+        if (!targetIds.length) {
+          errorHost.textContent = 'This answer is not linked to a checklist item and cannot be re-evaluated here.';
+          return;
+        }
+
+        saveButton.disabled = true;
+        saveButton.textContent = 'Re-evaluating…';
+        errorHost.textContent = '';
+        try {
+          const d = await publicApi('/api/evaluate-dynamic-answer', {
+            checkpointId: entry.checkpointId,
+            question: entry.question,
+            answer: editedText.trim(),
+            projectType: session.projectType,
+            projectDescription: session.projectDescription,
+            sessionDetails: session,
+            history: session.answers.filter((item, index) => index !== answerIndex && item.checkpointId === entry.checkpointId),
+            targetItemIds: targetIds,
+            followUpCounts: session.followUpCounts || {}
+          });
+          const ev = d.evaluation || {};
+          const covered = (ev.coveredItemIds || []).filter(id => targetIds.includes(id));
+          const complete = Boolean(ev.sufficient || targetIds.every(id => covered.includes(id)));
+
+          entry.answer = editedText.trim();
+          entry.followUpQuestion = '';
+          entry.followUpAnswer = '';
+          entry.followUpMainPoint = '';
+          entry.mainPoint = ev.mainPoint || editedText.trim();
+          entry.reason = ev.reason || '';
+          entry.status = ev.disposition || 'answered';
+          entry.coveredItemIds = complete ? (covered.length ? covered : targetIds) : covered;
+          entry.handledItemIds = targetIds;
+          entry.evaluation = ev;
+          entry.needsReview = Boolean(!complete || ev.needsReview || ev.fallback);
+          session.validationPassed = false;
+          session.validationReport = null;
+          save();
+          preview();
+          $('validationResults').classList.remove('hidden');
+          $('submitTicketBtn').disabled = true;
+          $('validationResults').textContent = complete
+            ? 'Answer updated and re-evaluated successfully. Run the final completeness check again.'
+            : `Answer updated, but the evaluator still needs clarification: ${ev.assessment || ev.followUpQuestion || 'Please provide more specific information.'} Edit the answer again or add the missing detail, then rerun the check.`;
+        } catch (error) {
+          errorHost.textContent = error.message || 'Unable to re-evaluate this answer. Please try again.';
+          saveButton.disabled = false;
+          saveButton.textContent = 'Save and re-evaluate';
+        }
+      }
+
       function preview() {
-        show("workspace", false);
-        show("review", true);
-        const host = $("reviewContent");
-        host.innerHTML = "";
-        const summary = document.createElement("div");
-        summary.className = "rounded-xl soft p-4 text-sm";
-        summary.innerHTML = `<b>${escapeHtml(session.projectName || `${session.companyName} - ${session.projectType}`)}</b><br>${escapeHtml(session.companyName)}<br>${escapeHtml(session.contactName)} · ${escapeHtml(session.contactEmail)}<br>Project type: ${escapeHtml(session.projectType)}`;
+        show('workspace', false);
+        show('review', true);
+        const host = $('reviewContent');
+        host.innerHTML = '';
+        $('submitTicketBtn').disabled = true;
+        $('validationResults').classList.add('hidden');
+        session.validationPassed = false;
+
+        const summary = document.createElement('div');
+        summary.className = 'rounded-xl soft p-4 text-sm';
+        summary.innerHTML = `<b>${escapeHtml(session.projectName || `${session.companyName} - ${session.projectType}`)}</b><br>${escapeHtml(session.clientName)} · ${escapeHtml(session.companyName)}<br>${escapeHtml(session.contactName)} · ${escapeHtml(session.contactEmail)}<br>Project type: ${escapeHtml(session.projectType)}`;
         host.appendChild(summary);
+
+        const editHint = document.createElement('p');
+        editHint.className = 'text-sm muted';
+        editHint.textContent = 'You can edit any recorded response below. Saving an edit runs the AI evaluator again and resets the final completeness check.';
+        host.appendChild(editHint);
+
         config.checkpoints.forEach((cp) => {
-          const section = document.createElement("section");
+          const section = document.createElement('section');
           section.innerHTML = `<h3 class="font-bold text-lg mb-3">${escapeHtml(cp.title)}</h3>`;
           const entries = session.answers.filter((a) => a.checkpointId === cp.id);
           if (!entries.length) section.innerHTML += '<p class="text-sm muted">No answers recorded.</p>';
           entries.forEach((a) => {
-            const box = document.createElement("div");
-            box.className = "border borderline rounded-lg p-3 mb-3 text-sm";
+            const answerIndex = session.answers.indexOf(a);
+            const box = document.createElement('div');
+            box.className = 'border borderline rounded-lg p-3 mb-3 text-sm';
             const flag =
-              a.status === "unknown"
-                ? "CLIENT DOES NOT KNOW YET"
-                : a.status === "delegated"
-                  ? "DECISION DELEGATED TO DELIVERY TEAM"
-                  : a.status === "accepted"
-                    ? "ACCEPTED AS-IS"
+              a.status === 'unknown'
+                ? 'CLIENT DOES NOT KNOW YET'
+                : a.status === 'delegated'
+                  ? 'DECISION DELEGATED TO DELIVERY TEAM'
+                  : a.status === 'accepted'
+                    ? 'ACCEPTED AS-IS'
                     : a.needsReview
-                      ? "NEEDS REVIEW"
-                      : "";
-            box.innerHTML = `<div class="font-semibold">${escapeHtml(a.question)}</div><div class="mt-2 chat">${escapeHtml(a.answer)}</div>${a.mainPoint ? `<div class="mt-2 text-xs muted"><b>Main point captured:</b> ${escapeHtml(a.mainPoint)}</div>` : ""}${a.followUpQuestion ? `<div class="mt-2 text-blue-700">Follow-up: ${escapeHtml(a.followUpQuestion)}</div><div>${escapeHtml(a.followUpAnswer || "")}</div>` : ""}${a.reason ? `<div class="mt-2">Reason: ${escapeHtml(a.reason)}</div>` : ""}${flag ? `<div class="mt-2 font-bold text-amber-700">⚑ ${flag}</div>` : ""}${a.evaluation?.contradictions?.length ? `<div class="mt-2 text-red-700">Potential contradiction: ${escapeHtml(a.evaluation.contradictions.join("; "))}</div>` : ""}`;
+                      ? 'NEEDS REVIEW'
+                      : '';
+            box.innerHTML = `<div class="font-semibold">${escapeHtml(a.question)}</div><div class="mt-2 chat whitespace-pre-wrap">${escapeHtml(a.answer)}</div>${a.mainPoint ? `<div class="mt-2 text-xs muted"><b>Main point captured:</b> ${escapeHtml(a.mainPoint)}</div>` : ''}${a.followUpQuestion ? `<div class="mt-2 text-blue-700">Follow-up: ${escapeHtml(a.followUpQuestion)}</div><div class="whitespace-pre-wrap">${escapeHtml(a.followUpAnswer || '')}</div>` : ''}${a.reason ? `<div class="mt-2">Reason: ${escapeHtml(a.reason)}</div>` : ''}${flag ? `<div class="mt-2 font-bold text-amber-700">⚑ ${flag}</div>` : ''}${a.evaluation?.contradictions?.length ? `<div class="mt-2 text-red-700">Potential contradiction: ${escapeHtml(a.evaluation.contradictions.join('; '))}</div>` : ''}`;
+
+            const editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'mt-3 rounded-lg border px-3 py-2 text-sm font-semibold soft';
+            editButton.textContent = 'Edit answer';
+            editButton.setAttribute('aria-label', `Edit answer: ${a.question}`);
+
+            const editor = document.createElement('div');
+            editor.className = 'hidden mt-3 rounded-lg soft p-3';
+            const editorLabel = document.createElement('label');
+            editorLabel.className = 'block text-sm font-semibold mb-2';
+            editorLabel.textContent = 'Update this response';
+            const textarea = document.createElement('textarea');
+            textarea.className = 'field w-full rounded-lg border p-3 min-h-[120px]';
+            textarea.value = [a.answer, a.followUpAnswer].filter(Boolean).join('\n\n');
+            editorLabel.appendChild(textarea);
+            const error = document.createElement('p');
+            error.className = 'text-sm text-red-600 mt-2';
+            error.setAttribute('role', 'alert');
+            const actions = document.createElement('div');
+            actions.className = 'flex flex-wrap gap-2 mt-3';
+            const saveButton = document.createElement('button');
+            saveButton.type = 'button';
+            saveButton.className = 'rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold';
+            saveButton.textContent = 'Save and re-evaluate';
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.className = 'rounded-lg border px-4 py-2 text-sm soft';
+            cancelButton.textContent = 'Cancel';
+            saveButton.onclick = () => saveEditedAnswer(answerIndex, textarea.value, error, saveButton);
+            cancelButton.onclick = () => { editor.classList.add('hidden'); editButton.focus(); };
+            actions.append(saveButton, cancelButton);
+            editor.append(editorLabel, error, actions);
+            editButton.onclick = () => {
+              editor.classList.toggle('hidden');
+              if (!editor.classList.contains('hidden')) textarea.focus();
+            };
+            box.append(editButton, editor);
             section.appendChild(box);
           });
           const note = session.checkpointNotes?.[cp.id];
           if (note) {
-            const noteBox = document.createElement("div");
-            noteBox.className = "rounded-lg soft p-3 text-sm";
+            const noteBox = document.createElement('div');
+            noteBox.className = 'rounded-lg soft p-3 text-sm';
             noteBox.innerHTML = `<b>Additional checkpoint notes</b><div class="mt-1 chat">${escapeHtml(note)}</div>`;
             section.appendChild(noteBox);
           }
@@ -1250,18 +1358,19 @@
         $("validationResults").textContent = "Checking required information, unresolved items and possible contradictions…";
         try {
           const result = await publicApi("/api/validate-intake", session);
+          session.validationPassed = result.canSubmit !== false;
           session.validationReport = result;
-          const blocking = result.blockingIssues || [];
-          session.validationPassed = blocking.length === 0 && result.canSubmit !== false;
           save();
           const warnings = result.warnings || [];
           const missing = result.missingRequired || [];
-          let html = blocking.length
-            ? '<div class="font-bold text-red-600">Submission is on hold. Please correct the date issues below and run the check again.</div>'
-            : '<div class="font-bold text-emerald-700">Validation review completed. You may submit the ticket even if non-blocking warnings remain.</div>';
+          const blocking = result.blockingIssues || [];
+          let html = session.validationPassed
+            ? '<div class="font-bold text-emerald-700">Validation review completed. The timeline checks passed. You may submit the ticket even if non-blocking discovery warnings remain.</div>'
+            : '<div class="font-bold text-red-700">Submission is on hold. Please correct the date issues below, edit the affected answers, and run the check again.</div>';
           if (blocking.length)
-            html += '<div class="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 text-red-800"><b>Required corrections:</b><ul class="list-disc pl-5 mt-1">' +
-              blocking.map(x => `<li>${escapeHtml(x)}</li>`).join("") + '</ul></div>';
+            html += '<div class="mt-3 text-red-700"><b>Required corrections:</b><ul class="list-disc pl-5 mt-1">' +
+              blocking.map((x) => `<li>${escapeHtml(x)}</li>`).join('') +
+              '</ul></div><p class="mt-2 text-sm">Use the <b>Edit answer</b> controls beside the recorded responses below. Saving an edit will re-run the AI evaluator.</p>';
           if (missing.length)
             html +=
               '<div class="mt-3"><b>Important details still missing or unverified:</b><ul class="list-disc pl-5 mt-1">' +
@@ -1273,7 +1382,9 @@
               warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join("") +
               "</ul></div>";
           if (!warnings.length && !missing.length) html += '<p class="mt-2">No outstanding warnings were identified.</p>';
-          html += '<p class="mt-3 text-sm font-semibold">Submitting will include these warnings in the Zendesk ticket for follow-up.</p>';
+          html += session.validationPassed
+            ? '<p class="mt-3 text-sm font-semibold">Submitting will include any remaining non-blocking warnings in the Zendesk ticket for follow-up.</p>'
+            : '<p class="mt-3 text-sm font-semibold text-red-700">The submit button will remain disabled until the date corrections pass validation.</p>';
           $("validationResults").innerHTML = html;
           $("submitTicketBtn").disabled = !session.validationPassed;
         } catch (e) {
@@ -1287,24 +1398,17 @@
           btn.classList.remove("inline-flex", "items-center", "gap-2");
         }
       }
-      function updateThemeButton() {
-        const isDark = document.body.classList.contains("dark");
-        const label = isDark ? "Switch to light mode" : "Switch to dark mode";
-        $("themeIcon").textContent = isDark ? "☀" : "☾";
-        $("themeBtn").setAttribute("aria-label", label);
-        $("themeBtn").title = label;
+      function applyTheme(theme) {
+        const dark = theme === "dark";
+        document.body.classList.toggle("dark", dark);
+        localStorage.setItem("sowTheme", dark ? "dark" : "light");
+        $("themeIcon").textContent = dark ? "☀" : "☾";
+        $("themeLabel").textContent = dark ? "Light mode" : "Dark mode";
+        $("themeBtn").setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+        $("themeBtn").title = dark ? "Switch to light mode" : "Switch to dark mode";
       }
-      $("themeBtn").onclick = () => {
-        document.body.classList.toggle("dark");
-        try {
-          localStorage.setItem("sowTheme", document.body.classList.contains("dark") ? "dark" : "light");
-        } catch (_) {}
-        updateThemeButton();
-      };
-      try {
-        if (localStorage.getItem("sowTheme") === "dark") document.body.classList.add("dark");
-      } catch (_) {}
-      updateThemeButton();
+      $("themeBtn").onclick = () => applyTheme(document.body.classList.contains("dark") ? "light" : "dark");
+      applyTheme(localStorage.getItem("sowTheme") === "dark" ? "dark" : "light");
       $("startBtn").onclick = () => withButtonLoading($("startBtn"), "Starting discovery…", () => startSession(false));
       $("sendBtn").onclick = () => (pending?.isFollowUp ? submitFollowUp() : submitAnswer());
       $("unknownBtn").onclick = () => {
@@ -1445,7 +1549,7 @@
         const owner = item.owner?.full_name || item.owner_name || item.owner_email || item.profiles?.full_name || "Employee";
         const status = item.status || "in_progress";
         const progress = Number(item.checkpoint_index ?? item.checkpointIndex ?? 0);
-        return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · Primary contact: ${escapeHtml(item.contact_name || item.contactName || "Not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
+        return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · ${escapeHtml(item.client_name || item.clientName || "Client not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
       }
       function renderMySessions() {
         const host = $("mySessionsList");
@@ -1526,7 +1630,6 @@
             session = normalizeSession(claim.session);
           }
           detailsFields.forEach((k) => ($(k).value = session[k] || ""));
-          session.clientName = session.contactName || session.clientName || "";
           show("setup", false);
           show("workspace", true);
           show("review", false);
