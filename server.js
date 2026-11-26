@@ -586,6 +586,35 @@ app.get('/api/sessions/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Return the same structured AI summary used to compose the Zendesk ticket.
+app.get('/api/sessions/:id/summary', requireAuth, async (req, res) => {
+  try {
+    const record = await getSessionRecord(req.params.id);
+    if (!record) {
+      return res.status(404).json({ success: false, error: 'Session not found.' });
+    }
+    if (!(await canAccessSession(req.user, record))) {
+      return res.status(403).json({ success: false, error: 'You do not have access to this session.' });
+    }
+
+    const session = await sessionWithAnswers(record.id);
+    const summary = await generateConciseTicketSummary({
+      projectName: record.project_name,
+      companyName: record.company_name,
+      projectType: record.project_type,
+      projectDescription: record.project_description,
+      answers: session.answers || [],
+      checkpoint_notes: record.checkpoint_notes || {},
+      validationReport: record.validation_report || {}
+    });
+
+    res.json({ success: true, summary });
+  } catch (error) {
+    console.error('Session summary error:', error);
+    dbError(error, res, 'Unable to generate the session summary.');
+  }
+});
+
 app.patch('/api/sessions/:id', requireAuth, async (req, res) => {
   try {
     const record = await getSessionRecord(req.params.id);

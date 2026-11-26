@@ -352,6 +352,20 @@
         border-radius: .9rem;
       }
     }
+    /* Compact Session Manager filters */
+    .filter-compact {
+        height: 42px;
+        min-height: 42px;
+        padding: 0 12px;
+        font-size: 13px;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
+
+    .filter-compact::placeholder {
+        color: #94a3b8;
+        opacity: 1;
+    }
   </style>
 </head>
 
@@ -626,9 +640,33 @@
           <div id="mySharedCount" class="text-2xl font-bold">—</div>
         </div>
       </div>
+      <div class="panel rounded-xl p-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <label class="text-xs muted">
+          Search
+          <input
+            id="mySessionsSearch"
+            class="field filter-compact mt-1"
+            type="search"
+            placeholder="Projects, companies, contacts..."
+          />
+        </label>
+          <label class="text-xs muted">
+            From date
+            <input id="mySessionsDateFrom" class="field filter-compact mt-1" type="date" />
+          </label>
+
+          <label class="text-xs muted">
+            To date
+            <input id="mySessionsDateTo" class="field filter-compact mt-1" type="date" />
+          </label>
+
+        </div>
+      </div>
       <div id="mySessionsList" class="space-y-3">
         <div class="panel rounded-xl p-5 muted text-sm">Loading your sessions…</div>
       </div>
+      <div id="mySessionsPagination" class="flex flex-wrap items-center justify-between gap-3"></div>
       <p id="mySessionsError" class="text-sm text-red-600" role="alert"></p>
     </section>
 
@@ -704,9 +742,11 @@
         </div>
       </div>
       <div class="panel rounded-xl p-4">
-        <div class="grid sm:grid-cols-3 gap-3">
-          <input id="trackingSearch" class="field" placeholder="Search employee, company, project…" /><select
-            id="trackingStatus" class="field">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <input id="trackingSearch" class="field" placeholder="Search employee, company, project…" />
+          <label class="text-xs muted">From date<input id="trackingDateFrom" class="field mt-1" type="date" /></label>
+          <label class="text-xs muted">To date<input id="trackingDateTo" class="field mt-1" type="date" /></label>
+          <select id="trackingStatus" class="field">
             <option value="all">All statuses</option>
             <option value="draft">Draft</option>
             <option value="in_progress">In progress</option>
@@ -722,6 +762,7 @@
       <div id="allSessionsList" class="space-y-3">
         <div class="panel rounded-xl p-5 muted text-sm">Loading session tracking…</div>
       </div>
+      <div id="allSessionsPagination" class="flex flex-wrap items-center justify-between gap-3"></div>
       <p id="allSessionsError" class="text-sm text-red-600" role="alert"></p>
     </section>
     <section id="sessionDetailPanel" class="hidden fixed inset-0 z-50 bg-slate-950/60 p-4 overflow-y-auto"
@@ -735,7 +776,19 @@
           </div>
           <button id="closeSessionDetailBtn" class="rounded-lg border px-3 py-2 text-sm soft">Close</button>
         </div>
-        <div id="detailAnswers" class="mt-5 space-y-4"></div>
+        <section class="mt-5 rounded-xl border borderline p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="font-semibold">AI session summary</h3>
+            <span class="text-xs muted">Same summary structure used for Zendesk</span>
+          </div>
+          <div id="detailSummary" class="mt-3 space-y-3 text-sm">
+            <p class="muted">Generating summary…</p>
+          </div>
+        </section>
+        <div class="mt-6">
+          <h3 class="font-semibold mb-3">Full discussion</h3>
+          <div id="detailAnswers" class="space-y-4"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -756,7 +809,10 @@
       saveTimer = null,
       allSessionsCache = [],
       mySessionsCache = [],
-      employeesCache = [];
+      employeesCache = [],
+      mySessionsPage = 1,
+      allSessionsPage = 1;
+    const SESSIONS_PAGE_SIZE = 10;
     const CACHE_TTL_MS = 5 * 60 * 1000;
     function cacheKey(name) { return `sow-intake:${currentUser?.id || "guest"}:${name}`; }
     function readCache(name) {
@@ -1833,7 +1889,7 @@
         const blocking = result.blockingIssues || [];
         const clientFollowUps = result.clientFollowUps || [];
         let html = session.validationPassed
-          ? '<div class="font-bold text-emerald-700">Validation review completed. The timeline checks passed. You may submit the ticket even if non-blocking discovery warnings remain.</div>'
+          ? '<div class="font-bold text-emerald-700">Validation review completed. You may now submit the ticket.</div>'
           : '<div class="font-bold text-red-700">Submission is on hold. Please correct the date issues below, edit the affected answers, and run the check again.</div>';
         if (blocking.length)
           html += '<div class="mt-3 text-red-700"><b>Required corrections:</b><ul class="list-disc pl-5 mt-1">' +
@@ -2055,7 +2111,26 @@
       const owner = item.owner?.full_name || item.owner_name || item.owner_email || item.profiles?.full_name || "Employee";
       const status = item.status || "in_progress";
       const progress = Number(item.checkpoint_index ?? item.checkpointIndex ?? 0);
-      return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · Contact: ${escapeHtml(item.contact_name || item.contactName || "Not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${Math.min(progress + 1, 6)} / 6 checkpoints</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, Math.max(0, (progress / 6) * 100))}%"></div></div></div></article>`;
+      const isSubmitted = ["submitted", "completed"].includes(status);
+      const progressPercent = isSubmitted ? 100 : Math.min(100, Math.max(0, (progress / 6) * 100));
+      const progressLabel = isSubmitted ? "6 / 6 checkpoints" : `${Math.min(progress + 1, 6)} / 6 checkpoints`;
+      return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · Contact: ${escapeHtml(item.contact_name || item.contactName || "Not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${progressLabel}</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600 transition-all" style="width:${progressPercent}%"></div></div></div></article>`;
+    }
+    function inDateRange(item, from, to) {
+      const raw = item.submitted_at || item.updated_at || item.created_at || item.updatedAt || item.createdAt;
+      if (!raw) return !from && !to;
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return !from && !to;
+      const day = date.toISOString().slice(0, 10);
+      return (!from || day >= from) && (!to || day <= to);
+    }
+    function renderPagination(containerId, page, total, pageSetter) {
+      const host = $(containerId);
+      const pages = Math.max(1, Math.ceil(total / SESSIONS_PAGE_SIZE));
+      if (!host) return;
+      host.innerHTML = total > SESSIONS_PAGE_SIZE
+        ? `<span class="text-xs muted">Showing ${(page - 1) * SESSIONS_PAGE_SIZE + 1}–${Math.min(page * SESSIONS_PAGE_SIZE, total)} of ${total} projects</span><div class="flex items-center gap-2"><button type="button" data-page-action="${pageSetter}" data-page="${page - 1}" class="rounded-lg border px-3 py-2 text-sm soft" ${page <= 1 ? "disabled" : ""}>Previous</button><span class="text-sm muted">Page ${page} of ${pages}</span><button type="button" data-page-action="${pageSetter}" data-page="${page + 1}" class="rounded-lg border px-3 py-2 text-sm soft" ${page >= pages ? "disabled" : ""}>Next</button></div>`
+        : `<span class="text-xs muted">${total} project${total === 1 ? "" : "s"}</span>`;
     }
     function renderMySessions() {
       const host = $("mySessionsList");
@@ -2063,7 +2138,17 @@
       $("myActiveCount").textContent = active.length;
       $("mySubmittedCount").textContent = mySessionsCache.filter((x) => ["submitted", "completed"].includes(x.status)).length;
       $("mySharedCount").textContent = mySessionsCache.filter((x) => x.visibility === "team" && x.owner_id !== currentUser.id).length;
-      host.innerHTML = mySessionsCache.length ? mySessionsCache.map((x) => sessionCard(x, false)).join("") : '<div class="panel rounded-xl p-6 muted text-sm">You do not have any saved discovery sessions yet.</div>';
+      const q = $("mySessionsSearch").value.trim().toLowerCase();
+      const from = $("mySessionsDateFrom").value, to = $("mySessionsDateTo").value;
+      const filtered = mySessionsCache.filter(x => {
+        const searchable = [x.project_name, x.projectName, x.company_name, x.companyName, x.contact_name, x.contactName, x.project_type, x.projectType].join(" ").toLowerCase();
+        return (!q || searchable.includes(q)) && inDateRange(x, from, to);
+      });
+      const pages = Math.max(1, Math.ceil(filtered.length / SESSIONS_PAGE_SIZE));
+      mySessionsPage = Math.min(mySessionsPage, pages);
+      const visible = filtered.slice((mySessionsPage - 1) * SESSIONS_PAGE_SIZE, mySessionsPage * SESSIONS_PAGE_SIZE);
+      host.innerHTML = visible.length ? visible.map((x) => sessionCard(x, false)).join("") : '<div class="panel rounded-xl p-6 muted text-sm">No sessions match your search or date filter.</div>';
+      renderPagination("mySessionsPagination", mySessionsPage, filtered.length, "my");
     }
     async function loadMySessions() {
       const host = $("mySessionsList");
@@ -2110,16 +2195,23 @@
     function renderAllSessions() {
       const q = $("trackingSearch").value.trim().toLowerCase(),
         status = $("trackingStatus").value,
-        team = $("trackingTeam").value;
+        team = $("trackingTeam").value,
+        from = $("trackingDateFrom").value,
+        to = $("trackingDateTo").value;
       const filtered = allSessionsCache.filter((x) => {
-        const text = [x.project_name, x.projectName, x.company_name, x.companyName, x.owner?.full_name, x.owner_name, x.owner_email, x.team?.name]
+        const text = [x.project_name, x.projectName, x.company_name, x.companyName, x.owner?.full_name, x.owner_name, x.owner_email, x.team?.name, x.contact_name]
           .join(" ")
           .toLowerCase();
-        return (!q || text.includes(q)) && (status === "all" || x.status === status) && (team === "all" || String(x.team_id || "") === team);
+        return (!q || text.includes(q)) && (status === "all" || x.status === status) &&
+          (team === "all" || String(x.team_id || "") === team) && inDateRange(x, from, to);
       });
-      $("allSessionsList").innerHTML = filtered.length
-        ? filtered.map((x) => sessionCard(x, true)).join("")
+      const pages = Math.max(1, Math.ceil(filtered.length / SESSIONS_PAGE_SIZE));
+      allSessionsPage = Math.min(allSessionsPage, pages);
+      const visible = filtered.slice((allSessionsPage - 1) * SESSIONS_PAGE_SIZE, allSessionsPage * SESSIONS_PAGE_SIZE);
+      $("allSessionsList").innerHTML = visible.length
+        ? visible.map((x) => sessionCard(x, true)).join("")
         : '<div class="panel rounded-xl p-6 muted text-sm">No sessions match these filters.</div>';
+      renderPagination("allSessionsPagination", allSessionsPage, filtered.length, "all");
     }
     async function openSavedSession(id) {
       try {
@@ -2495,9 +2587,21 @@
       show("sessionTeamWrap", $("sessionVisibility").value === "team");
     });
     $("trackingSearch").addEventListener("input", renderAllSessions);
-    $("trackingStatus").addEventListener("change", renderAllSessions);
-    $("trackingTeam").addEventListener("change", renderAllSessions);
+    $("trackingStatus").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
+    $("trackingTeam").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
+    $("trackingSearch").addEventListener("input", () => { allSessionsPage = 1; renderAllSessions(); });
+    $("trackingDateFrom").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
+    $("trackingDateTo").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
+    $("mySessionsSearch").addEventListener("input", () => { mySessionsPage = 1; renderMySessions(); });
+    $("mySessionsDateFrom").addEventListener("change", () => { mySessionsPage = 1; renderMySessions(); });
+    $("mySessionsDateTo").addEventListener("change", () => { mySessionsPage = 1; renderMySessions(); });
     document.addEventListener("click", (e) => {
+      const pageButton = e.target.closest("[data-page-action]");
+      if (pageButton && !pageButton.disabled) {
+        const nextPage = Number(pageButton.dataset.page);
+        if (pageButton.dataset.pageAction === "my") { mySessionsPage = nextPage; renderMySessions(); }
+        if (pageButton.dataset.pageAction === "all") { allSessionsPage = nextPage; renderAllSessions(); }
+      }
       const resume = e.target.closest("[data-resume-session]");
       const view = e.target.closest("[data-view-session]");
       if (resume) {
@@ -2507,6 +2611,26 @@
         withButtonLoading(view, "Loading…", () => openSessionDetail(view.dataset.viewSession));
       }
     });
+    function renderSessionSummary(summary) {
+      const sections = [
+        ["Project objective", summary.objective],
+        ["Business requirements", summary.businessRequirements],
+        ["Functional requirements", summary.functionalRequirements],
+        ["Systems & data", summary.systemsAndData],
+        ["Operations & service levels", summary.operations],
+        ["Timeline", [summary.startDate ? `Start: ${summary.startDate}` : "", summary.goLiveDate ? `Go-live: ${summary.goLiveDate}` : ""].filter(Boolean)],
+        ["Budget", summary.budget],
+        ["Deliverables", summary.deliverables],
+        ["Acceptance criteria", summary.acceptance],
+        ["Client follow-ups", summary.clientFollowUps]
+      ];
+      const populated = sections.filter(([, value]) => Array.isArray(value) ? value.length : Boolean(value));
+      if (!populated.length) return '<p class="muted">No summary points were available for this session yet.</p>';
+      return populated.map(([label, value]) => {
+        const items = Array.isArray(value) ? value : [value];
+        return `<section><h4 class="font-semibold">${escapeHtml(label)}</h4>${items.length > 1 ? `<ul class="list-disc pl-5 mt-1 space-y-1">${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : `<p class="chat mt-1">${escapeHtml(items[0])}</p>`}</section>`;
+      }).join("");
+    }
     async function openSessionDetail(id) {
       try {
         const d = await api(`/api/sessions/${id}`, undefined, "GET");
@@ -2514,6 +2638,13 @@
         $("detailTitle").textContent = s.project_name || s.projectName || s.company_name || s.companyName || "Discovery session";
         $("detailMeta").textContent =
           `${s.company_name || s.companyName || "Company"} · ${s.owner?.full_name || s.owner_name || "Employee"} · ${statusLabel(s.status)} · Updated ${formatDate(s.updated_at || s.updatedAt)}`;
+        $("detailSummary").innerHTML = '<p class="muted">Generating summary…</p>';
+        try {
+          const summaryResponse = await api(`/api/sessions/${id}/summary`, undefined, "GET");
+          $("detailSummary").innerHTML = renderSessionSummary(summaryResponse.summary || {});
+        } catch (summaryError) {
+          $("detailSummary").innerHTML = `<p class="text-sm text-amber-700">The AI summary could not be loaded: ${escapeHtml(summaryError.message)}. You can still review the full discussion below.</p>`;
+        }
         const answers = s.answers || [];
         $("detailAnswers").innerHTML = answers.length
           ? answers
