@@ -544,9 +544,8 @@
           <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h3 class="font-semibold">Discovery conversation</h3>
             <div class="flex gap-3">
-              <button id="pauseSessionBtn" class="text-sm underline text-amber-700">Ⅱ Save as draft & exit</button>
-              <button id="refreshBtn" class="text-sm underline text-blue-700">↻ Retry / refresh</button><button
-                id="backBtn" class="text-sm underline muted hidden">← Previous checkpoint</button>
+              <button id="pauseSessionBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Ⅱ <span>Save as draft &amp; exit</span></button>
+              <button id="refreshBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-700 bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 hover:border-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:border-blue-300 disabled:bg-blue-100 disabled:text-blue-800 disabled:opacity-100 disabled:cursor-not-allowed dark:border-blue-500 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500 dark:disabled:border-blue-800 dark:disabled:bg-slate-800 dark:disabled:text-slate-300">↻ <span>Retry / refresh</span></button>
             </div>
           </div>
           <div id="conversation" class="space-y-4 min-h-24"></div>
@@ -587,17 +586,20 @@
               checkpoint →</button>
           </div>
         </div>
-        <div class="flex justify-between gap-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
           <span id="autosaveStatus" class="text-xs muted" role="status" aria-live="polite">Changes save
             automatically</span>
-          <button id="reviewBtn" class="text-sm underline muted">Preview all answers</button>
+          <button id="reviewBtn" type="button"
+            class="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold soft hover:opacity-80 transition">
+            Preview all answers <span aria-hidden="true">→</span>
+          </button>
         </div>
       </section>
 
       <section id="review" class="hidden panel rounded-2xl p-5 sm:p-7 shadow-sm">
         <div class="flex justify-between items-center gap-3">
           <h2 class="text-xl font-bold">Review discovery summary</h2>
-          <button id="closeReviewBtn" class="underline text-sm">Back to session</button>
+          <button id="closeReviewBtn" type="button" class="rounded-lg border px-4 py-2 text-sm font-semibold soft hover:opacity-80">← Back</button>
         </div>
         <p class="muted text-sm mt-2">
           Review the recorded question-and-answer history. Items marked unknown or accepted remain visibly flagged for
@@ -609,8 +611,7 @@
             class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Run final completeness
             check</button><button id="submitTicketBtn" disabled
             class="rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-5 py-3">
-            Confirm and submit to Zendesk</button><button id="backToSessionBtn"
-            class="rounded-lg border px-5 py-3 soft">Continue editing</button>
+            Confirm and submit to Zendesk</button>
         </div>
         <div id="validationResults" class="hidden mt-4 rounded-xl border borderline p-4 text-sm" role="status"></div>
         <p id="submitStatus" class="text-sm mt-3" role="status"></p>
@@ -641,7 +642,7 @@
         </div>
       </div>
       <div class="panel rounded-xl p-3">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
         <label class="text-xs muted">
           Search
           <input
@@ -660,7 +661,14 @@
             To date
             <input id="mySessionsDateTo" class="field filter-compact mt-1" type="date" />
           </label>
-
+          <label class="text-xs muted">
+            Status
+            <select id="mySessionsProgressStatus" class="field filter-compact mt-1">
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+            </select>
+          </label>
         </div>
       </div>
       <div id="mySessionsList" class="space-y-3">
@@ -742,7 +750,7 @@
         </div>
       </div>
       <div class="panel rounded-xl p-4">
-        <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <input id="trackingSearch" class="field" placeholder="Search employee, company, project…" />
           <label class="text-xs muted">From date<input id="trackingDateFrom" class="field mt-1" type="date" /></label>
           <label class="text-xs muted">To date<input id="trackingDateTo" class="field mt-1" type="date" /></label>
@@ -754,7 +762,13 @@
             <option value="submitted">Submitted</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
-          </select><select id="trackingTeam" class="field">
+          </select>
+          <select id="trackingProgressStatus" class="field" aria-label="Filter by pending or completed">
+            <option value="all">Pending / Completed: All</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+          </select>
+          <select id="trackingTeam" class="field">
             <option value="all">All teams</option>
           </select>
         </div>
@@ -1038,7 +1052,7 @@
       $("checkpointTitle").textContent = cp.title;
       $("checkpointCount").textContent = `Checkpoint ${session.checkpointIndex + 1} of 6`;
       $("checkpointHint").textContent = `${cp.items.length} information areas · AI-generated questions`;
-      show("backBtn", session.checkpointIndex > 0);
+      // Checkpoint navigation is handled by the clickable checkpoint pills above.
       $("progressBar").style.width = `${(session.checkpointIndex / 6) * 100}%`;
       renderPills();
     }
@@ -1498,6 +1512,75 @@
       show("review", false);
       setTab("discovery");
       await askNext();
+    }
+    function confirmTicketSubmission() {
+      return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4";
+        overlay.innerHTML = `<div class="panel w-full max-w-md rounded-2xl p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="ticketSubmitConfirmTitle"><div class="flex h-11 w-11 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-xl">✓</div><h3 id="ticketSubmitConfirmTitle" class="text-lg font-bold mt-4">Submit discovery session?</h3><p class="muted text-sm mt-2">This will create a Zendesk ticket using the completed discovery details. Please make sure the preview and final completeness check are correct before continuing.</p><div class="mt-6 flex flex-wrap justify-end gap-2"><button type="button" data-submit-cancel class="rounded-lg border px-4 py-2.5 text-sm font-semibold soft">Cancel</button><button type="button" data-submit-confirm class="rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 text-sm font-semibold">Yes, submit ticket</button></div></div>`;
+        const finish = (value) => { document.removeEventListener("keydown", onKey); overlay.remove(); resolve(value); };
+        const onKey = (event) => { if (event.key === "Escape") finish(false); };
+        overlay.addEventListener("click", (event) => {
+          if (event.target === overlay || event.target.closest("[data-submit-cancel]")) finish(false);
+          if (event.target.closest("[data-submit-confirm]")) finish(true);
+        });
+        document.addEventListener("keydown", onKey);
+        document.body.appendChild(overlay);
+        overlay.querySelector("[data-submit-confirm]").focus();
+      });
+    }
+
+    function showTicketSubmittedDialog(ticketId, zendeskUrl) {
+      return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4";
+        const ticketLink = zendeskUrl ? `<a class="mt-3 inline-block text-sm font-semibold text-blue-700 underline dark:text-blue-300" target="_blank" rel="noopener" href="${escapeHtml(zendeskUrl)}">Open Zendesk ticket #${escapeHtml(ticketId || "")}</a>` : "";
+        overlay.innerHTML = `<div class="panel w-full max-w-md rounded-2xl p-6 shadow-xl text-center" role="dialog" aria-modal="true" aria-labelledby="ticketSubmittedTitle"><div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 text-2xl">✓</div><h3 id="ticketSubmittedTitle" class="text-xl font-bold mt-4">Discovery submitted successfully</h3><p class="muted text-sm mt-2">Your discovery session has been submitted and the Zendesk ticket has been created${ticketId ? ` (Ticket #${escapeHtml(ticketId)})` : ""}.</p>${ticketLink}<div class="mt-6"><button type="button" data-discovery-home class="w-full rounded-lg bg-blue-700 hover:bg-blue-800 px-5 py-3 text-sm font-semibold text-white">Back to discovery home</button></div></div>`;
+        const finish = () => { document.removeEventListener("keydown", onKey); overlay.remove(); resolve(); };
+        const onKey = (event) => { if (event.key === "Escape") finish(); };
+        overlay.addEventListener("click", (event) => { if (event.target === overlay || event.target.closest("[data-discovery-home]")) finish(); });
+        document.addEventListener("keydown", onKey);
+        document.body.appendChild(overlay);
+        overlay.querySelector("[data-discovery-home]").focus();
+      });
+    }
+
+    function returnToDiscoveryHome() {
+      clearTimeout(saveTimer);
+      pending = null;
+      session = null;
+      uploadedDocumentContext = [];
+      show("workspace", false);
+      show("review", false);
+      show("setup", true);
+      setTab("discovery");
+      const status = $("documentUploadStatus");
+      if (status) status.textContent = "No documents uploaded.";
+      renderUploadedDocuments();
+      $("setupError").textContent = "";
+    }
+
+    function confirmClientDoesNotKnow() {
+      return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4";
+        overlay.innerHTML = `<div class="panel w-full max-w-md rounded-2xl p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="unknownConfirmTitle"><h3 id="unknownConfirmTitle" class="text-lg font-bold">Confirm client response</h3><p class="muted text-sm mt-2">Mark this item as unknown? The system will continue to the next question and flag this item for client follow-up in the Zendesk ticket.</p><div class="mt-6 flex flex-wrap justify-end gap-2"><button type="button" data-unknown-cancel class="rounded-lg border px-4 py-2.5 text-sm soft">Cancel</button><button type="button" data-unknown-confirm class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 text-sm font-semibold">Confirm</button></div></div>`;
+        const onKey = (event) => {
+          if (event.key === "Escape") finish(false);
+        };
+        const finish = (value) => {
+          document.removeEventListener("keydown", onKey);
+          overlay.remove();
+          resolve(value);
+        };
+        overlay.addEventListener("click", (event) => {
+          if (event.target === overlay || event.target.closest("[data-unknown-cancel]")) finish(false);
+          if (event.target.closest("[data-unknown-confirm]")) finish(true);
+        });
+        document.addEventListener("keydown", onKey);
+        document.body.appendChild(overlay);
+        overlay.querySelector("[data-unknown-confirm]").focus();
+      });
     }
     function markCurrentAs(status, reason = "") {
       const entry = {
@@ -1971,11 +2054,10 @@
       });
     };
     $("sendBtn").onclick = () => (pending?.isFollowUp ? submitFollowUp() : submitAnswer());
-    $("unknownBtn").onclick = () => {
+    $("unknownBtn").onclick = async () => {
       if (!pending) return;
-      const reason = prompt("Why does the client not know this yet?");
-      if (reason === null) return;
-      markCurrentAs("unknown", reason.trim() || "Client unable to confirm during this meeting.");
+      if (!(await confirmClientDoesNotKnow())) return;
+      markCurrentAs("unknown", "Client unable to confirm during this meeting.");
     };
     $("acceptBtn").onclick = () => {
       if (!pending) return;
@@ -2002,7 +2084,7 @@
       save();
       await askNext();
     };
-    $("backBtn").onclick = () => navigateToCheckpoint(session.checkpointIndex - 1);
+    // Previous-checkpoint button removed; clickable checkpoint pills remain available.
     $("refreshBtn").onclick = async () => {
       if (!session) return;
       if (pending) {
@@ -2053,15 +2135,17 @@
     };
     $("validateBtn").onclick = runFinalValidation;
     $("reviewBtn").onclick = preview;
-    $("closeReviewBtn").onclick = $("backToSessionBtn").onclick = () => {
+    $("closeReviewBtn").onclick = () => {
       show("review", false);
       show("workspace", true);
     };
     $("submitTicketBtn").onclick = async () => {
+      if (!session?.id) return;
       if (!session.validationPassed) {
         $("submitStatus").textContent = "Run the final validation review before submitting. Warnings will not prevent submission.";
         return;
       }
+      if (!(await confirmTicketSubmission())) return;
       const btn = $("submitTicketBtn");
       btn.disabled = true;
       btn.setAttribute("aria-busy", "true");
@@ -2070,11 +2154,16 @@
       $("submitStatus").textContent = "Sending the discovery details to Zendesk. Please keep this page open…";
       try {
         const r = await api("/api/submit-intake", { sessionId: session.id });
-        $("submitStatus").innerHTML =
-          `Submitted successfully. Ticket #${r.ticketId}. <a class="underline" target="_blank" rel="noopener" href="${escapeHtml(r.zendeskUrl)}">Open Zendesk ticket</a>`;
         session.status = "submitted";
-        await api(`/api/sessions/${session.id}`, { status: "submitted" }, "PATCH");
-        btn.classList.add("hidden");
+        try {
+          await api(`/api/sessions/${session.id}`, { status: "submitted" }, "PATCH");
+        } catch (statusError) {
+          // Ticket creation succeeded; do not leave the user stuck on the preview if status sync fails.
+          console.warn("Ticket was created, but the session status could not be refreshed:", statusError);
+        }
+        $("submitStatus").textContent = "Ticket submitted successfully.";
+        await showTicketSubmittedDialog(r.ticketId, r.zendeskUrl);
+        returnToDiscoveryHome();
       } catch (e) {
         $("submitStatus").textContent = e.message;
         btn.disabled = false;
@@ -2114,7 +2203,11 @@
       const isSubmitted = ["submitted", "completed"].includes(status);
       const progressPercent = isSubmitted ? 100 : Math.min(100, Math.max(0, (progress / 6) * 100));
       const progressLabel = isSubmitted ? "6 / 6 checkpoints" : `${Math.min(progress + 1, 6)} / 6 checkpoints`;
-      return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · Contact: ${escapeHtml(item.contact_name || item.contactName || "Not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex items-center gap-2"><span class="text-xs rounded-full px-3 py-1 bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 text-white px-4 py-2 text-sm font-semibold">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${progressLabel}</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600 transition-all" style="width:${progressPercent}%"></div></div></div></article>`;
+      const progressStatus = isSubmitted ? "completed" : "pending";
+      const statusBadge = progressStatus === "completed"
+        ? '<span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800">Completed</span>'
+        : '<span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-amber-100 text-amber-800">Pending</span>';
+      return `<article class="panel rounded-xl p-4 sm:p-5"><div class="flex flex-wrap justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold break-words">${escapeHtml(title)}</h3><p class="muted text-sm mt-1">${escapeHtml(item.company_name || item.companyName || "Company not set")} · Contact: ${escapeHtml(item.contact_name || item.contactName || "Not set")}</p>${admin ? `<p class="muted text-xs mt-1">Owner: ${escapeHtml(owner)}${item.team?.name ? ` · Team: ${escapeHtml(item.team.name)}` : ""}</p>` : ""}<p class="muted text-xs mt-2">Updated ${escapeHtml(formatDate(item.updated_at || item.updatedAt))} · ${escapeHtml(statusLabel(status))}</p></div><div class="flex flex-wrap items-center justify-end gap-2">${statusBadge}<span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-slate-100 text-slate-700">${escapeHtml(item.visibility || "private")}</span>${!admin && ["draft", "in_progress", "review"].includes(status) ? `<button data-resume-session="${escapeHtml(item.id)}" class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 text-sm font-semibold min-w-[76px]">Resume</button>` : `<button data-view-session="${escapeHtml(item.id)}" class="rounded-lg border px-4 py-2 text-sm soft min-w-[76px]">View</button>`}</div></div><div class="mt-3"><div class="flex justify-between text-xs muted mb-1"><span>Discovery progress</span><span>${progressLabel}</span></div><div class="h-2 rounded-full bg-slate-200 overflow-hidden"><div class="h-full bg-blue-600 transition-all" style="width:${progressPercent}%"></div></div></div></article>`;
     }
     function inDateRange(item, from, to) {
       const raw = item.submitted_at || item.updated_at || item.created_at || item.updatedAt || item.createdAt;
@@ -2140,9 +2233,12 @@
       $("mySharedCount").textContent = mySessionsCache.filter((x) => x.visibility === "team" && x.owner_id !== currentUser.id).length;
       const q = $("mySessionsSearch").value.trim().toLowerCase();
       const from = $("mySessionsDateFrom").value, to = $("mySessionsDateTo").value;
+      const progressStatus = $("mySessionsProgressStatus").value;
       const filtered = mySessionsCache.filter(x => {
         const searchable = [x.project_name, x.projectName, x.company_name, x.companyName, x.contact_name, x.contactName, x.project_type, x.projectType].join(" ").toLowerCase();
-        return (!q || searchable.includes(q)) && inDateRange(x, from, to);
+        const completed = ["submitted", "completed"].includes(x.status);
+        const statusMatch = progressStatus === "all" || (progressStatus === "completed" ? completed : !completed);
+        return (!q || searchable.includes(q)) && statusMatch && inDateRange(x, from, to);
       });
       const pages = Math.max(1, Math.ceil(filtered.length / SESSIONS_PAGE_SIZE));
       mySessionsPage = Math.min(mySessionsPage, pages);
@@ -2195,6 +2291,7 @@
     function renderAllSessions() {
       const q = $("trackingSearch").value.trim().toLowerCase(),
         status = $("trackingStatus").value,
+        progressStatus = $("trackingProgressStatus").value,
         team = $("trackingTeam").value,
         from = $("trackingDateFrom").value,
         to = $("trackingDateTo").value;
@@ -2202,7 +2299,9 @@
         const text = [x.project_name, x.projectName, x.company_name, x.companyName, x.owner?.full_name, x.owner_name, x.owner_email, x.team?.name, x.contact_name]
           .join(" ")
           .toLowerCase();
-        return (!q || text.includes(q)) && (status === "all" || x.status === status) &&
+        const completed = ["submitted", "completed"].includes(x.status);
+        const progressMatch = progressStatus === "all" || (progressStatus === "completed" ? completed : !completed);
+        return (!q || text.includes(q)) && (status === "all" || x.status === status) && progressMatch &&
           (team === "all" || String(x.team_id || "") === team) && inDateRange(x, from, to);
       });
       const pages = Math.max(1, Math.ceil(filtered.length / SESSIONS_PAGE_SIZE));
@@ -2588,11 +2687,13 @@
     });
     $("trackingSearch").addEventListener("input", renderAllSessions);
     $("trackingStatus").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
+    $("trackingProgressStatus").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
     $("trackingTeam").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
     $("trackingSearch").addEventListener("input", () => { allSessionsPage = 1; renderAllSessions(); });
     $("trackingDateFrom").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
     $("trackingDateTo").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
     $("mySessionsSearch").addEventListener("input", () => { mySessionsPage = 1; renderMySessions(); });
+    $("mySessionsProgressStatus").addEventListener("change", () => { mySessionsPage = 1; renderMySessions(); });
     $("mySessionsDateFrom").addEventListener("change", () => { mySessionsPage = 1; renderMySessions(); });
     $("mySessionsDateTo").addEventListener("change", () => { mySessionsPage = 1; renderMySessions(); });
     document.addEventListener("click", (e) => {

@@ -1581,6 +1581,9 @@ async function formatTicket(data) {
       clientFollowUps.push(`${label}: ${detail}`);
       continue;
     }
+    if (status === 'delegated') {
+      clientFollowUps.push(`${label}: Client delegated this choice to the project team. Provide a recommendation/proposal and confirm it with the client before finalizing the SOW.`);
+    }
 
     if (response) {
       discoveryLines.push(`- ${label}: ${response}`);
@@ -2323,6 +2326,13 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
       });
     }
 
+    // Mark tickets that need the client to confirm an unknown item or a team recommendation.
+    const answersForFollowUp = Array.isArray(data.answers) ? data.answers : [];
+    const needsClientFollowUp = answersForFollowUp.some(answer => {
+      const disposition = answer.status || answer.evaluation?.disposition;
+      return disposition === 'unknown' || disposition === 'delegated';
+    });
+
     // Do not block Zendesk submission for discovery gaps or validation warnings.
     // Only actual submission requirements (contact details, an answer record, and Zendesk availability) are enforced here.
     const ticketBody = await formatTicket(data);
@@ -2351,7 +2361,8 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
             tags: [
               'sow_intake',
               'presales_discovery',
-              'pending_sow_review'
+              'pending_sow_review',
+              ...(needsClientFollowUp ? ['client_input_required', 'follow_up_required'] : [])
             ]
           }
         })
