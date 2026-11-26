@@ -710,16 +710,35 @@
         </form>
       </div>
       <div class="panel rounded-xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="font-semibold">Teams</h3>
+            <p class="muted text-xs mt-1">Create teams and assign presales employees to them.</p>
+          </div>
+          <form id="createTeamForm" class="flex flex-wrap gap-2">
+            <input id="newTeamName" class="field min-w-0 sm:w-64" maxlength="80" required placeholder="New team name" aria-label="New team name" />
+            <button id="createTeamBtn" class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 text-sm font-semibold">Add team</button>
+          </form>
+        </div>
+        <p id="teamCreateStatus" class="text-sm mt-2" role="status"></p>
+        <div id="teamsList" class="mt-3 flex flex-wrap gap-2"></div>
+      </div>
+      <div class="panel rounded-xl p-5">
         <div class="flex items-center justify-between gap-3">
           <h3 class="font-semibold">Existing employees</h3>
           <button id="refreshEmployeesBtn" class="text-sm underline text-blue-700">Refresh</button>
         </div>
-        <div class="mt-4 max-w-xs">
-          <label class="block text-xs font-semibold muted mb-1" for="employeeRoleFilter">Filter by access role</label>
-          <select id="employeeRoleFilter" class="field">
-            <option value="all">All access roles</option>
+        <div class="mt-4 grid sm:grid-cols-3 gap-3">
+          <input id="employeeSearch" class="field" placeholder="Search name or email…" aria-label="Search employees" />
+          <select id="employeeRoleFilter" class="field" aria-label="Filter by access role">
+            <option value="all">All roles</option>
             <option value="admin">Admin</option>
             <option value="presales">Presales</option>
+          </select>
+          <select id="employeeStatusFilter" class="field" aria-label="Filter by account status">
+            <option value="all">All account statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
         </div>
         <div id="employeesList" class="mt-4 space-y-2">
@@ -755,27 +774,18 @@
         </div>
       </div>
       <div class="panel rounded-xl p-4">
-        <div class="grid sm:grid-cols-2 lg:grid-cols-6 gap-3">
-          <input id="trackingSearch" class="field" placeholder="Search employee, company, project…" />
-          <label class="text-xs muted">From date<input id="trackingDateFrom" class="field mt-1" type="date" /></label>
-          <label class="text-xs muted">To date<input id="trackingDateTo" class="field mt-1" type="date" /></label>
-          <select id="trackingStatus" class="field">
-            <option value="all">All statuses</option>
-            <option value="draft">Draft</option>
-            <option value="in_progress">In progress</option>
-            <option value="review">Review</option>
-            <option value="submitted">Submitted</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <select id="trackingProgressStatus" class="field" aria-label="Filter by pending or completed">
-            <option value="all">Pending / Completed: All</option>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <input id="trackingSearch" class="field" placeholder="Search employee, company, project…" aria-label="Search sessions" />
+          <select id="trackingProgressStatus" class="field" aria-label="Filter by session progress">
+            <option value="all">All progress</option>
             <option value="pending">Pending</option>
             <option value="completed">Completed</option>
           </select>
-          <select id="trackingTeam" class="field">
+          <select id="trackingTeam" class="field" aria-label="Filter by team">
             <option value="all">All teams</option>
           </select>
+          <label class="text-xs muted">From date<input id="trackingDateFrom" class="field mt-1" type="date" /></label>
+          <label class="text-xs muted">To date<input id="trackingDateTo" class="field mt-1" type="date" /></label>
         </div>
       </div>
       <div id="allSessionsList" class="space-y-3">
@@ -2411,7 +2421,6 @@
     }
     function renderAllSessions() {
       const q = $("trackingSearch").value.trim().toLowerCase(),
-        status = $("trackingStatus").value,
         progressStatus = $("trackingProgressStatus").value,
         team = $("trackingTeam").value,
         from = $("trackingDateFrom").value,
@@ -2422,7 +2431,7 @@
           .toLowerCase();
         const completed = ["submitted", "completed"].includes(x.status);
         const progressMatch = progressStatus === "all" || (progressStatus === "completed" ? completed : !completed);
-        return (!q || text.includes(q)) && (status === "all" || x.status === status) && progressMatch &&
+        return (!q || text.includes(q)) && progressMatch &&
           (team === "all" || String(x.team_id || "") === team) && inDateRange(x, from, to);
       });
       const pages = Math.max(1, Math.ceil(filtered.length / SESSIONS_PAGE_SIZE));
@@ -2467,6 +2476,10 @@
       try {
         const d = await api(currentRole === "admin" ? "/api/admin/teams" : "/api/teams", undefined, "GET");
         const teams = d.teams || [];
+        const teamsHost = $("teamsList");
+        if (teamsHost) teamsHost.innerHTML = teams.length
+          ? teams.map(t => `<span class="rounded-full border borderline px-3 py-1.5 text-sm">${escapeHtml(t.name)}</span>`).join("")
+          : '<span class="muted text-sm">No teams created yet.</span>';
         for (const id of ["employeeTeam", "trackingTeam", "sessionTeam"]) {
           const select = $(id);
           if (!select) continue;
@@ -2489,25 +2502,86 @@
         console.warn("Teams could not be loaded:", e.message);
       }
     }
+    let employeesPage = 1;
+    const EMPLOYEES_PAGE_SIZE = 10;
     function renderEmployees() {
       const host = $("employeesList");
       const roleFilter = $("employeeRoleFilter")?.value || "all";
-      const filtered = employeesCache.filter(u => roleFilter === "all" || u.role === roleFilter);
-      host.innerHTML = filtered.length ? filtered.map(u => {
-        const pending = !u.password_setup_completed;
-        return `<article class="border-b borderline py-4" data-employee="${escapeHtml(u.id)}">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="min-w-0"><div class="font-semibold">${escapeHtml(u.full_name || "Unnamed employee")}</div><div class="muted text-xs break-all">${escapeHtml(u.email || "")}</div>
-                <div class="muted text-xs mt-1">${escapeHtml(u.team_name || "No team")}</div>
-                <div class="flex flex-wrap gap-2 mt-2"><span class="text-xs rounded-full px-2.5 py-1 ${pending ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}">${pending ? "Pending account setup" : "Account created"}</span><span class="text-xs rounded-full px-2.5 py-1 bg-slate-100 text-slate-700">${u.is_active === false ? "Inactive" : "Active"}</span></div>
-              </div>
-              <div class="flex flex-wrap items-center gap-2"><label class="text-xs muted">Role<select class="field mt-1 !w-32" data-edit-role="${escapeHtml(u.id)}"><option value="presales" ${u.role === "presales" ? "selected" : ""}>Presales</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>Admin</option></select></label>
-                <label class="text-xs muted">Team<select class="field mt-1 !w-40" data-edit-team="${escapeHtml(u.id)}"><option value="">No team</option>${teamOptionsHtml(u.team_id)}</select></label>
-                <button class="rounded-lg bg-blue-700 text-white px-3 py-2 text-xs font-semibold" data-save-employee="${escapeHtml(u.id)}">Save changes</button>
-                <button class="rounded-lg border border-red-300 text-red-700 px-3 py-2 text-xs" data-delete-employee="${escapeHtml(u.id)}">Delete</button>
-              </div>
-            </div></article>`;
-      }).join("") : '<p class="muted text-sm">No employees match this access-role filter.</p>';
+      const statusFilter = $("employeeStatusFilter")?.value || "all";
+      const q = $("employeeSearch")?.value.trim().toLowerCase() || "";
+      const filtered = employeesCache.filter(u => {
+        const roleMatch = roleFilter === "all" || u.role === roleFilter;
+        const statusMatch = statusFilter === "all" || (statusFilter === "active" ? u.is_active !== false : u.is_active === false);
+        const searchMatch = !q || `${u.full_name || ""} ${u.email || ""}`.toLowerCase().includes(q);
+        return roleMatch && statusMatch && searchMatch;
+      });
+      const totalPages = Math.max(1, Math.ceil(filtered.length / EMPLOYEES_PAGE_SIZE));
+      employeesPage = Math.min(Math.max(1, employeesPage), totalPages);
+      const startIndex = (employeesPage - 1) * EMPLOYEES_PAGE_SIZE;
+      const visible = filtered.slice(startIndex, startIndex + EMPLOYEES_PAGE_SIZE);
+      host.innerHTML = filtered.length ? `
+        <div class="overflow-x-auto rounded-xl border borderline">
+          <table class="w-full min-w-[900px] text-sm text-left">
+            <thead class="bg-slate-100 dark:bg-slate-800">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Employee</th>
+                <th class="px-4 py-3 font-semibold">Role</th>
+                <th class="px-4 py-3 font-semibold">Team</th>
+                <th class="px-4 py-3 font-semibold">Account status</th>
+                <th class="px-4 py-3 font-semibold">Setup status</th>
+                <th class="px-4 py-3 font-semibold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y borderline">
+              ${visible.map(u => {
+                const pending = !u.password_setup_completed;
+                const isAdmin = u.role === "admin";
+                return `<tr data-employee="${escapeHtml(u.id)}" class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <td class="px-4 py-3">
+                    <div class="font-semibold">${escapeHtml(u.full_name || "Unnamed employee")}</div>
+                    <div class="muted text-xs break-all">${escapeHtml(u.email || "")}</div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <select class="field !w-32" data-edit-role="${escapeHtml(u.id)}" aria-label="Role for ${escapeHtml(u.full_name || u.email || "employee")}">
+                      <option value="presales" ${u.role === "presales" ? "selected" : ""}>Presales</option>
+                      <option value="admin" ${isAdmin ? "selected" : ""}>Admin</option>
+                    </select>
+                  </td>
+                  <td class="px-4 py-3">
+                    ${isAdmin
+                      ? '<span class="muted text-xs italic">Admins don\'t have teams</span>'
+                      : `<select class="field !w-40" data-edit-team="${escapeHtml(u.id)}" aria-label="Team for ${escapeHtml(u.full_name || u.email || "employee")}"><option value="">No team</option>${teamOptionsHtml(u.team_id)}</select>`}
+                  </td>
+                  <td class="px-4 py-3">
+                    <select class="field !w-32" data-edit-active="${escapeHtml(u.id)}" aria-label="Account status">
+                      <option value="true" ${u.is_active !== false ? "selected" : ""}>Active</option>
+                      <option value="false" ${u.is_active === false ? "selected" : ""}>Inactive</option>
+                    </select>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex whitespace-nowrap text-xs rounded-full px-2.5 py-1 ${pending ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}">${pending ? "Pending setup" : "Account created"}</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex justify-end gap-2">
+                      <button class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 text-xs font-semibold" data-save-employee="${escapeHtml(u.id)}">Save</button>
+                      <button class="rounded-lg border border-red-300 text-red-700 hover:bg-red-50 px-3 py-2 text-xs font-semibold" data-delete-employee="${escapeHtml(u.id)}">Delete</button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+          <p class="muted text-xs">Showing ${startIndex + 1}–${Math.min(startIndex + EMPLOYEES_PAGE_SIZE, filtered.length)} of ${filtered.length} accounts</p>
+          <div class="flex items-center gap-2">
+            <button type="button" id="employeesPrevPage" class="rounded-lg border px-3 py-2 text-sm soft" ${employeesPage <= 1 ? "disabled" : ""}>Previous</button>
+            <span class="muted text-xs px-1">Page ${employeesPage} of ${totalPages}</span>
+            <button type="button" id="employeesNextPage" class="rounded-lg border px-3 py-2 text-sm soft" ${employeesPage >= totalPages ? "disabled" : ""}>Next</button>
+          </div>
+        </div>` : '<p class="muted text-sm rounded-xl border borderline p-6 text-center">No employees match these filters.</p>';
+      $("employeesPrevPage")?.addEventListener("click", () => { employeesPage--; renderEmployees(); });
+      $("employeesNextPage")?.addEventListener("click", () => { employeesPage++; renderEmployees(); });
     }
     function teamOptionsHtml(selectedTeamId) {
       return [...$("employeeTeam").options].filter(o => o.value).map(o => `<option value="${escapeHtml(o.value)}" ${o.value === selectedTeamId ? "selected" : ""}>${escapeHtml(o.textContent)}</option>`).join("");
@@ -2528,10 +2602,12 @@
     }
     async function updateEmployee(id) {
       const role = document.querySelector(`[data-edit-role="${CSS.escape(id)}"]`).value;
-      const teamId = document.querySelector(`[data-edit-team="${CSS.escape(id)}"]`).value || null;
+      const teamSelect = document.querySelector(`[data-edit-team="${CSS.escape(id)}"]`);
+      const teamId = teamSelect && !teamSelect.disabled ? (teamSelect.value || null) : null;
+      const isActive = document.querySelector(`[data-edit-active="${CSS.escape(id)}"]`).value === "true";
       const btn = document.querySelector(`[data-save-employee="${CSS.escape(id)}"]`);
       await withButtonLoading(btn, "Saving…", async () => {
-        await api(`/api/admin/employees/${id}`, { role, teamId }, "PATCH");
+        await api(`/api/admin/employees/${id}`, { role, teamId, isActive }, "PATCH");
         writeCache("employees", null);
         await loadEmployees();
       });
@@ -2793,7 +2869,9 @@
     $("refreshMySessionsBtn").onclick = () => withButtonLoading($("refreshMySessionsBtn"), "Refreshing…", loadMySessions);
     $("refreshAllSessionsBtn").onclick = () => withButtonLoading($("refreshAllSessionsBtn"), "Refreshing…", loadAllSessions);
     $("refreshEmployeesBtn").onclick = () => withButtonLoading($("refreshEmployeesBtn"), "Refreshing…", loadEmployees);
-    $("employeeRoleFilter").addEventListener("change", renderEmployees);
+    $("employeeRoleFilter").addEventListener("change", () => { employeesPage = 1; renderEmployees(); });
+    $("employeeStatusFilter").addEventListener("change", () => { employeesPage = 1; renderEmployees(); });
+    $("employeeSearch").addEventListener("input", () => { employeesPage = 1; renderEmployees(); });
     $("employeesList").addEventListener("click", async (e) => {
       const save = e.target.closest("[data-save-employee]");
       const del = e.target.closest("[data-delete-employee]");
@@ -2803,11 +2881,47 @@
       } catch (err) { alert("Employee update failed: " + err.message); }
     });
     $("inviteEmployeeForm").addEventListener("submit", inviteEmployee);
+    $("employeeRole").addEventListener("change", () => {
+      $("employeeTeam").disabled = $("employeeRole").value === "admin";
+      if ($("employeeTeam").disabled) $("employeeTeam").value = "";
+    });
+    $("employeesList").addEventListener("change", (e) => {
+      const roleSelect = e.target.closest("[data-edit-role]");
+      if (!roleSelect) return;
+      const id = roleSelect.dataset.editRole;
+      const row = roleSelect.closest("tr");
+      const teamCell = row?.children?.[2];
+      if (roleSelect.value === "admin") {
+        if (teamCell) teamCell.innerHTML = '<span class="muted text-xs italic">Admins have no team</span>';
+      } else if (teamCell) {
+        const employee = employeesCache.find(u => u.id === id);
+        teamCell.innerHTML = `<select class="field !w-40" data-edit-team="${escapeHtml(id)}" aria-label="Team for employee"><option value="">No team</option>${teamOptionsHtml(employee?.team_id || null)}</select>`;
+      }
+    });
+    $("createTeamForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = $("createTeamBtn");
+      const status = $("teamCreateStatus");
+      status.textContent = "";
+      await withButtonLoading(btn, "Adding…", async () => {
+        try {
+          await api("/api/admin/teams", { name: $("newTeamName").value.trim() });
+          $("newTeamName").value = "";
+          status.textContent = "Team created successfully.";
+          status.className = "text-sm mt-2 text-emerald-700";
+          await loadTeams();
+          writeCache("employees", null);
+          await loadEmployees();
+        } catch (err) {
+          status.textContent = err.message;
+          status.className = "text-sm mt-2 text-red-600";
+        }
+      });
+    });
     $("sessionVisibility").addEventListener("change", () => {
       show("sessionTeamWrap", $("sessionVisibility").value === "team");
     });
     $("trackingSearch").addEventListener("input", renderAllSessions);
-    $("trackingStatus").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
     $("trackingProgressStatus").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
     $("trackingTeam").addEventListener("change", () => { allSessionsPage = 1; renderAllSessions(); });
     $("trackingSearch").addEventListener("input", () => { allSessionsPage = 1; renderAllSessions(); });

@@ -345,6 +345,27 @@ async function sendTeams(req, res) {
 app.get('/api/teams', requireAuth, sendTeams);
 app.get('/api/admin/teams', requireAuth, requireAdmin, sendTeams);
 
+// Admin: create a team.
+app.post('/api/admin/teams', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const name = safeText(req.body?.name, 80);
+    if (!name || name.length < 2) {
+      return res.status(400).json({ success: false, error: 'Team name must be at least 2 characters.' });
+    }
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('teams').select('id').ilike('name', name).maybeSingle();
+    if (existingError) throw existingError;
+    if (existing) return res.status(409).json({ success: false, error: 'A team with this name already exists.' });
+
+    const { data, error } = await supabaseAdmin
+      .from('teams').insert({ name }).select('id, name').single();
+    if (error) throw error;
+    res.status(201).json({ success: true, team: data, message: 'Team created.' });
+  } catch (error) {
+    dbError(error, res, 'Unable to create team.');
+  }
+});
+
 
 
 // Create a discovery session. A presales employee may have only one active session.
@@ -935,21 +956,38 @@ app.patch('/api/me/password-setup', requireAuth, async (req, res) => {
   }
 });
 
-// Admin: change an employee's application role and single-team assignment.
+// Admin: update an employee's role, team assignment, and account status.
 app.patch('/api/admin/employees/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
-    const { role, teamId = null } = req.body || {};
+    const body = req.body || {};
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('profiles').select('id, role, is_active').eq('id', userId).maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return res.status(404).json({ success: false, error: 'Employee not found.' });
+
+    const role = body.role ?? existing.role;
+    const isActive = typeof body.isActive === 'boolean' ? body.isActive : existing.is_active !== false;
+    let teamId = body.teamId === undefined ? null : (body.teamId || null);
+
     if (!['admin', 'presales'].includes(role)) {
       return res.status(400).json({ success: false, error: 'Role must be admin or presales.' });
     }
     if (userId === req.user.id && role !== 'admin') {
       return res.status(400).json({ success: false, error: 'You cannot remove your own administrator access.' });
     }
-    const { data: existing, error: existingError } = await supabaseAdmin
-      .from('profiles').select('id, role').eq('id', userId).maybeSingle();
-    if (existingError) throw existingError;
-    if (!existing) return res.status(404).json({ success: false, error: 'Employee not found.' });
+    if (userId === req.user.id && !isActive) {
+      return res.status(400).json({ success: false, error: 'You cannot deactivate your own administrator account.' });
+    }
+    if (existing.role === 'admin' && isActive === false && existing.is_active !== false) {
+      const { count: activeAdminCount, error: activeAdminError } = await supabaseAdmin
+        .from('profiles').select('id', { count: 'exact', head: true })
+        .eq('role', 'admin').eq('is_active', true);
+      if (activeAdminError) throw activeAdminError;
+      if ((activeAdminCount || 0) <= 1) {
+        return res.status(409).json({ success: false, error: 'At least one active administrator account must remain.' });
+      }
+    }
     if (existing.role === 'admin' && role !== 'admin') {
       const { count, error: countError } = await supabaseAdmin
         .from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin');
@@ -957,6 +995,8 @@ app.patch('/api/admin/employees/:id', requireAuth, requireAdmin, async (req, res
       if ((count || 0) <= 1) return res.status(409).json({ success: false, error: 'At least one administrator account must remain.' });
     }
 
+    // Administrators are never assigned to a presales team.
+    if (role === 'admin') teamId = null;
     if (teamId) {
       const { data: team, error: teamError } = await supabaseAdmin
         .from('teams').select('id').eq('id', teamId).maybeSingle();
@@ -965,7 +1005,7 @@ app.patch('/api/admin/employees/:id', requireAuth, requireAdmin, async (req, res
     }
 
     const { error: profileError } = await supabaseAdmin
-      .from('profiles').update({ role }).eq('id', userId);
+      .from('profiles').update({ role, is_active: isActive }).eq('id', userId);
     if (profileError) throw profileError;
 
     const { error: removeMembershipError } = await supabaseAdmin
@@ -978,11 +1018,12 @@ app.patch('/api/admin/employees/:id', requireAuth, requireAdmin, async (req, res
       if (addMembershipError) throw addMembershipError;
     }
 
-    res.json({ success: true, message: 'Employee access updated.' });
+    res.json({ success: true, message: 'Employee account updated.' });
   } catch (error) {
-    dbError(error, res, 'Unable to update employee access.');
+    dbError(error, res, 'Unable to update employee account.');
   }
 });
+
 
 // Admin: permanently remove the account from Supabase Auth and its owned intake records.
 app.delete('/api/admin/employees/:id', requireAuth, requireAdmin, async (req, res) => {
@@ -1063,7 +1104,8 @@ app.get('/api/admin/sessions', requireAuth, requireAdmin, async (_req, res) => {
 // Invite employee using the server-only Supabase secret key.
 app.post('/api/admin/invites', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { email, fullName, role, teamId } = req.body || {};
+    const { email, fullName, role } = req.body || {};
+    const teamId = role === 'admin' ? null : (req.body?.teamId || null);
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return res.status(400).json({
