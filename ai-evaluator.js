@@ -141,8 +141,16 @@ function validateTimelineAnswers(answers, options = {}) {
       .filter(value => typeof value === 'string' && value.trim());
     if (recordUnknown && ids.includes('start_date')) startIsClientUnknown = true;
     if (recordUnknown && ids.includes('go_live')) goLiveIsClientUnknown = true;
-    const hasStartTarget = ids.includes('start_date') || /start(?:ing)?(?: interview)?(?: date)?|project start(?:s)?/i.test(String(record.question || ''));
-    const hasGoLiveTarget = ids.includes('go_live') || /go[\s-]?live|launch date/i.test(String(record.question || '')) || answerTexts.some(text => /go[\s-]?live|launch date/i.test(text));
+    // Explicit checklist item IDs are authoritative. The go-live question itself
+    // mentions "project start date" as a relative constraint; parsing that phrase
+    // as a second start-date target incorrectly overwrote the actual start date.
+    const hasExplicitTargets = ids.length > 0;
+    const hasStartTarget = hasExplicitTargets
+      ? ids.includes('start_date')
+      : /start(?:ing)?(?: interview)?(?: date)?|project start(?:s)?/i.test(String(record.question || ''));
+    const hasGoLiveTarget = hasExplicitTargets
+      ? ids.includes('go_live')
+      : /go[\s-]?live|launch date/i.test(String(record.question || '')) || answerTexts.some(text => /go[\s-]?live|launch date/i.test(text));
 
     for (const answerText of answerTexts) {
       const mentions = parseDateMentions(answerText);
@@ -307,6 +315,28 @@ async function nextQuestion({ checkpointId, projectType, projectDescription, ses
     };
   }
   if (!remaining.length) return { complete: true, question: null, targetItemIds: [] };
+
+  // Timeline dates are intentionally collected one at a time. This prevents the
+  // model from combining start/go-live dates and makes the browser date control
+  // deterministic while leaving every non-date discovery question unchanged.
+  if (checkpointId === 'delivery') {
+    const dateItem = remaining.find(item => item.id === 'start_date' || item.id === 'go_live');
+    if (dateItem) {
+      const question = dateItem.id === 'start_date'
+        ? 'What is the planned project start date? Select a calendar date below. It must be at least 14 days after this intake was created. If only the month and year are known, enter them in the text answer instead.'
+        : 'What is the planned project go-live date? Select a calendar date below. It must be at least two calendar months after the project start date. If only the month and year are known, enter them in the text answer instead.';
+      return {
+        complete: false,
+        question,
+        targetItemIds: [dateItem.id],
+        // Keep suggestion chips hidden while the native date picker is active.
+        suggestedAnswers: [],
+        rationale: 'Timeline dates are collected separately and validated deterministically.',
+        fallback: false,
+        inputType: 'date'
+      };
+    }
+  }
   const client = makeClient();
   if (!client) {
     const item = remaining[0];

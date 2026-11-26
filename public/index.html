@@ -553,6 +553,11 @@
             <label id="answerLabel" class="block text-sm font-semibold mb-2" for="answerInput">Your answer</label>
             <textarea id="answerInput" rows="4" maxlength="5000" class="w-full rounded-xl border border-slate-300 p-3"
               placeholder="Capture the client's answer..."></textarea>
+            <div id="dateAnswerWrap" class="hidden">
+              <input id="dateAnswerInput" type="date" class="w-full rounded-xl border border-slate-300 p-3" aria-label="Select project date" />
+              <p id="dateAnswerHint" class="text-xs muted mt-2">Choose a date that meets the minimum timeline requirement.</p>
+              <button id="dateUseTextBtn" type="button" class="text-sm text-blue-700 underline mt-2">Enter month/year or explain instead</button>
+            </div>
             <div id="suggestedAnswers" class="mt-3">
               <div class="text-xs font-semibold muted mb-2">Sample answer templates · click to insert, then replace the
                 bracketed parts with the client’s actual details</div>
@@ -1272,6 +1277,69 @@
       }
       await askNext();
     }
+    function configureAnswerInput(targetItemIds = []) {
+      const isTimelineDate = Array.isArray(targetItemIds) && targetItemIds.length === 1 &&
+        ['start_date', 'go_live'].includes(targetItemIds[0]);
+      const dateWrap = $("dateAnswerWrap");
+      const dateInput = $("dateAnswerInput");
+      const textInput = $("answerInput");
+      if (!dateWrap || !dateInput || !textInput) return;
+      dateInput.value = "";
+      dateInput.removeAttribute("min");
+      if (isTimelineDate) {
+        const itemId = targetItemIds[0];
+        let minDate = null;
+        if (itemId === 'start_date') {
+          const created = session.createdAt || session.created_at;
+          const base = created ? new Date(created) : new Date();
+          if (!Number.isNaN(base.getTime())) {
+            base.setUTCDate(base.getUTCDate() + 14);
+            minDate = `${base.getUTCFullYear()}-${String(base.getUTCMonth()+1).padStart(2,'0')}-${String(base.getUTCDate()).padStart(2,'0')}`;
+          }
+          $("dateAnswerHint").textContent = 'Earliest allowed start date: 14 calendar days after this intake was created.';
+        } else {
+          const prior = [...(session.answers || [])].reverse().find(a =>
+            (a.coveredItemIds || []).includes('start_date') || (a.handledItemIds || []).includes('start_date')
+          );
+          const match = String(prior?.answer || prior?.followUpAnswer || '').match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+          if (match) {
+            const base = new Date(Date.UTC(Number(match[1]), Number(match[2])-1, Number(match[3])));
+            const originalDay = base.getUTCDate();
+            const nextMonth = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 2, 1));
+            const lastDay = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 0)).getUTCDate();
+            nextMonth.setUTCDate(Math.min(originalDay, lastDay));
+            minDate = `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth()+1).padStart(2,'0')}-${String(nextMonth.getUTCDate()).padStart(2,'0')}`;
+          }
+          $("dateAnswerHint").textContent = 'Earliest allowed go-live: two calendar months after the project start date.';
+        }
+        if (minDate) dateInput.min = minDate;
+        dateWrap.classList.remove('hidden');
+        textInput.classList.add('hidden');
+        textInput.value = '';
+      } else {
+        dateWrap.classList.add('hidden');
+        textInput.classList.remove('hidden');
+      }
+    }
+    function openNativeDatePicker(input) {
+      if (!input || input.disabled) return;
+      try {
+        if (typeof input.showPicker === 'function') input.showPicker();
+        else { input.focus(); input.click(); }
+      } catch (_) { input.focus(); input.click(); }
+    }
+    // The full date panel is an affordance, not just the small calendar glyph.
+    $('dateAnswerWrap').addEventListener('click', event => {
+      if (event.target === $('dateAnswerInput') || event.target.closest('button')) return;
+      openNativeDatePicker($('dateAnswerInput'));
+    });
+
+    function currentAnswerValue() {
+      const dateWrap = $("dateAnswerWrap");
+      if (dateWrap && !dateWrap.classList.contains('hidden')) return $("dateAnswerInput").value.trim();
+      return $("answerInput").value.trim();
+    }
+
     async function askNext() {
       renderSuggestions([]);
       show("checkpointDone", false);
@@ -1297,6 +1365,7 @@
           });
           if (!d.complete) {
             pending = { question: d.question, targetItemIds: d.targetItemIds };
+            configureAnswerInput(d.targetItemIds);
             currentFollowUpCount = 0;
             addBubble("ai", d.question);
             renderSuggestions(d.suggestedAnswers || []);
@@ -1605,9 +1674,9 @@
     }
     async function submitAnswer() {
       session.validationPassed = false;
-      const answer = $("answerInput").value.trim();
+      const answer = currentAnswerValue();
       if (!answer) {
-        $("answerError").textContent = "Please enter the client’s answer first.";
+        $("answerError").textContent = "Please enter or select the client’s answer first.";
         return;
       }
       if (!pending) return;
@@ -1675,6 +1744,7 @@
             isFollowUp: true,
             parentEntry: entry,
           };
+          configureAnswerInput(pending.targetItemIds);
           currentFollowUpCount++;
           $("answerInput").value = "";
           $("answerLabel").textContent = "Answer the follow-up question";
@@ -1713,9 +1783,9 @@
     }
     async function submitFollowUp() {
       session.validationPassed = false;
-      const answer = $("answerInput").value.trim();
+      const answer = currentAnswerValue();
       if (!answer) {
-        $("answerError").textContent = "Please enter a follow-up answer.";
+        $("answerError").textContent = "Please enter or select a follow-up answer.";
         return;
       }
       const old = pending;
@@ -1760,6 +1830,7 @@
           if (!hitLimit && ev.followUpQuestion) {
             old.targetItemIds.forEach((id) => (session.followUpCounts[id] = (session.followUpCounts[id] || 0) + 1));
             pending = { ...old, question: ev.followUpQuestion };
+            configureAnswerInput(pending.targetItemIds);
             renderSuggestions(ev.suggestedAnswers || []);
             addBubble("ai", ev.followUpQuestion, `Follow-up ${Math.max(...old.targetItemIds.map((id) => session.followUpCounts[id]))} of ${maxFollowUps}`);
             $("answerInput").value = "";
@@ -1916,10 +1987,55 @@
           const editorLabel = document.createElement('label');
           editorLabel.className = 'block text-sm font-semibold mb-2';
           editorLabel.textContent = 'Update this response';
-          const textarea = document.createElement('textarea');
-          textarea.className = 'field w-full rounded-lg border p-3 min-h-[120px]';
-          textarea.value = [a.answer, a.followUpAnswer].filter(Boolean).join('\n\n');
-          editorLabel.appendChild(textarea);
+          const editTargetIds = [...new Set([...(a.handledItemIds || []), ...(a.coveredItemIds || [])])];
+          const editDateId = editTargetIds.length === 1 && ['start_date', 'go_live'].includes(editTargetIds[0]) ? editTargetIds[0] : null;
+          let editorInput;
+          let editDatePanel = null;
+          if (editDateId) {
+            editDatePanel = document.createElement('div');
+            editDatePanel.className = 'rounded-xl border borderline p-3 cursor-pointer';
+            const dateInput = document.createElement('input');
+            dateInput.type = 'date';
+            dateInput.className = 'field w-full rounded-lg border p-3 cursor-pointer';
+            dateInput.setAttribute('aria-label', `Select ${editDateId === 'start_date' ? 'project start' : 'project go-live'} date`);
+            const currentDate = String(a.answer || '').match(/\b20\d{2}-\d{2}-\d{2}\b/);
+            if (currentDate) dateInput.value = currentDate[0];
+            if (editDateId === 'start_date') {
+              const created = session.createdAt || session.created_at;
+              const base = created ? new Date(created) : new Date();
+              if (!Number.isNaN(base.getTime())) {
+                base.setUTCDate(base.getUTCDate() + 14);
+                dateInput.min = `${base.getUTCFullYear()}-${String(base.getUTCMonth()+1).padStart(2,'0')}-${String(base.getUTCDate()).padStart(2,'0')}`;
+              }
+            } else {
+              const startEntry = [...(session.answers || [])].reverse().find(item => (item.coveredItemIds || item.handledItemIds || []).includes('start_date'));
+              const startMatch = String(startEntry?.answer || '').match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+              if (startMatch) {
+                const start = new Date(Date.UTC(+startMatch[1], +startMatch[2]-1, +startMatch[3]));
+                const target = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth()+2, 1));
+                const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth()+1, 0)).getUTCDate();
+                target.setUTCDate(Math.min(start.getUTCDate(), lastDay));
+                dateInput.min = `${target.getUTCFullYear()}-${String(target.getUTCMonth()+1).padStart(2,'0')}-${String(target.getUTCDate()).padStart(2,'0')}`;
+              }
+            }
+            const hint = document.createElement('p');
+            hint.className = 'text-xs muted mt-2';
+            hint.textContent = editDateId === 'start_date'
+              ? 'Choose a date at least 14 days after intake creation.'
+              : 'Choose a date at least two calendar months after the project start date.';
+            editDatePanel.append(dateInput, hint);
+            editDatePanel.addEventListener('click', event => {
+              if (event.target !== dateInput) openNativeDatePicker(dateInput);
+            });
+            editorInput = dateInput;
+            editorLabel.appendChild(editDatePanel);
+          } else {
+            const textarea = document.createElement('textarea');
+            textarea.className = 'field w-full rounded-lg border p-3 min-h-[120px]';
+            textarea.value = [a.answer, a.followUpAnswer].filter(Boolean).join('\n\n');
+            editorInput = textarea;
+            editorLabel.appendChild(textarea);
+          }
           const error = document.createElement('p');
           error.className = 'text-sm text-red-600 mt-2';
           error.setAttribute('role', 'alert');
@@ -1933,13 +2049,13 @@
           cancelButton.type = 'button';
           cancelButton.className = 'rounded-lg border px-4 py-2 text-sm soft';
           cancelButton.textContent = 'Cancel';
-          saveButton.onclick = () => saveEditedAnswer(answerIndex, textarea.value, error, saveButton);
+          saveButton.onclick = () => { if (!editorInput.value.trim()) { error.textContent = 'Please select a date or enter an updated answer.'; return; } saveEditedAnswer(answerIndex, editorInput.value.trim(), error, saveButton); };
           cancelButton.onclick = () => { editor.classList.add('hidden'); editButton.focus(); };
           actions.append(saveButton, cancelButton);
           editor.append(editorLabel, error, actions);
           editButton.onclick = () => {
             editor.classList.toggle('hidden');
-            if (!editor.classList.contains('hidden')) textarea.focus();
+            if (!editor.classList.contains('hidden')) { if (editDateId) openNativeDatePicker(editorInput); else editorInput.focus(); }
           };
           if (!fromDocument) box.append(editButton, editor);
           section.appendChild(box);
@@ -2054,6 +2170,11 @@
       });
     };
     $("sendBtn").onclick = () => (pending?.isFollowUp ? submitFollowUp() : submitAnswer());
+    $("dateUseTextBtn").onclick = () => {
+      $("dateAnswerWrap").classList.add('hidden');
+      $("answerInput").classList.remove('hidden');
+      $("answerInput").focus();
+    };
     $("unknownBtn").onclick = async () => {
       if (!pending) return;
       if (!(await confirmClientDoesNotKnow())) return;
