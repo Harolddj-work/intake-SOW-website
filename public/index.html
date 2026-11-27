@@ -544,7 +544,7 @@
           <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h3 class="font-semibold">Discovery conversation</h3>
             <div class="flex gap-3">
-              <button id="pauseSessionBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Ⅱ <span>Save as draft &amp; exit</span></button>
+              <button id="pauseSessionBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"> <span>Save as draft &amp; exit</span></button>
               <button id="refreshBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-700 bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 hover:border-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:border-blue-300 disabled:bg-blue-100 disabled:text-blue-800 disabled:opacity-100 disabled:cursor-not-allowed dark:border-blue-500 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500 dark:disabled:border-blue-800 dark:disabled:bg-slate-800 dark:disabled:text-slate-300">↻ <span>Retry / refresh</span></button>
             </div>
           </div>
@@ -774,18 +774,28 @@
         </div>
       </div>
       <div class="panel rounded-xl p-4">
-        <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <input id="trackingSearch" class="field" placeholder="Search employee, company, project…" aria-label="Search sessions" />
-          <select id="trackingProgressStatus" class="field" aria-label="Filter by session progress">
+        <div class="mb-3">
+          <h3 class="text-sm font-semibold">Search and filter sessions</h3>
+          <p class="muted text-xs mt-1">Find projects by employee, progress, team, or submission date.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+          <label class="block text-xs font-medium muted">Search
+            <input id="trackingSearch" class="field mt-1 w-full" placeholder="Employee, company, project…" aria-label="Search sessions" />
+          </label>
+          <label class="block text-xs font-medium muted">Progress
+          <select id="trackingProgressStatus" class="field mt-1 w-full" aria-label="Filter by session progress">
             <option value="all">All progress</option>
             <option value="pending">Pending</option>
             <option value="completed">Completed</option>
           </select>
-          <select id="trackingTeam" class="field" aria-label="Filter by team">
+          </label>
+          <label class="block text-xs font-medium muted">Team
+          <select id="trackingTeam" class="field mt-1 w-full" aria-label="Filter by team">
             <option value="all">All teams</option>
           </select>
-          <label class="text-xs muted">From date<input id="trackingDateFrom" class="field mt-1" type="date" /></label>
-          <label class="text-xs muted">To date<input id="trackingDateTo" class="field mt-1" type="date" /></label>
+          </label>
+          <label class="block text-xs font-medium muted">From date<input id="trackingDateFrom" class="field mt-1 w-full" type="date" /></label>
+          <label class="block text-xs font-medium muted">To date<input id="trackingDateTo" class="field mt-1 w-full" type="date" /></label>
         </div>
       </div>
       <div id="allSessionsList" class="space-y-3">
@@ -802,6 +812,7 @@
             <div class="text-xs uppercase tracking-widest text-blue-700">Session details</div>
             <h2 id="detailTitle" class="text-xl font-bold mt-1">Discovery session</h2>
             <p id="detailMeta" class="muted text-sm mt-1"></p>
+            <div id="detailTicketLink" class="mt-2 text-sm"></div>
           </div>
           <button id="closeSessionDetailBtn" class="rounded-lg border px-3 py-2 text-sm soft">Close</button>
         </div>
@@ -813,6 +824,10 @@
           <div id="detailSummary" class="mt-3 space-y-3 text-sm">
             <p class="muted">Generating summary…</p>
           </div>
+        </section>
+        <section class="mt-6 rounded-xl border borderline p-4">
+          <h3 class="font-semibold">Submitted documents</h3>
+          <div id="detailDocuments" class="mt-3 space-y-2 text-sm"><p class="muted">Loading documents…</p></div>
         </section>
         <div class="mt-6">
           <h3 class="font-semibold mb-3">Full discussion</h3>
@@ -830,6 +845,7 @@
     let config = null,
       session = null,
       uploadedDocumentContext = [],
+      uploadedDocumentFiles = [],
       analyzingDocuments = false,
       pending = null,
       currentFollowUpCount = 0,
@@ -1465,6 +1481,7 @@
             const result = await api('/api/analyze-document', { fileName: file.name, mimeType: file.type || 'application/octet-stream', base64 });
             const analyzedDocument = result.document || {};
             uploadedDocumentContext.push(analyzedDocument);
+            uploadedDocumentFiles.push({ fileName: file.name, mimeType: file.type || 'application/octet-stream', base64 });
 
             // Pre-fill required session metadata only with values explicitly extracted by AI.
             // Never overwrite values the user has already entered.
@@ -1530,7 +1547,24 @@
         $('setupError').textContent = 'Please wait for AI document analysis to finish before starting the discovery session.';
         return;
       }
-      if (!restore) {
+      // If a session was already created but an original-file upload failed, retry those uploads
+      // instead of accidentally creating a duplicate discovery session.
+      if (!restore && session?.id) {
+        const retryErrors = [];
+        for (const file of uploadedDocumentFiles) {
+          try { await api(`/api/sessions/${session.id}/documents`, file); }
+          catch (uploadError) { retryErrors.push(`${file.fileName}: ${uploadError.message}`); }
+        }
+        if (retryErrors.length) {
+          $('setupError').textContent = `The session was created, but some documents are still not saved: ${retryErrors.join(' · ')}. Click Start discovery to retry.`;
+          return;
+        }
+        uploadedDocumentFiles = [];
+        uploadedDocumentContext = [];
+        renderUploadedDocuments();
+        $('setupError').textContent = '';
+      }
+      if (!restore && !session?.id) {
         const d = detailsFromForm();
         for (const k of ["companyName", "contactName", "contactEmail", "projectType"])
           if (!d[k]) {
@@ -1577,6 +1611,21 @@
         const created = await api("/api/sessions", initial);
         session = normalizeSession(created.session || created);
         if (!session.id) throw new Error("The session API did not return a session ID.");
+        let documentSaveErrors = [];
+        const failedFiles = [];
+        for (const file of uploadedDocumentFiles) {
+          try {
+            await api(`/api/sessions/${session.id}/documents`, file);
+          } catch (uploadError) {
+            failedFiles.push(file);
+            documentSaveErrors.push(`${file.fileName}: ${uploadError.message}`);
+          }
+        }
+        uploadedDocumentFiles = failedFiles;
+        if (documentSaveErrors.length) {
+          $('setupError').textContent = `The session was created, but some original documents could not be saved: ${documentSaveErrors.join(' · ')}. Click Start discovery to retry.`;
+          return;
+        }
         uploadedDocumentContext = [];
         renderUploadedDocuments();
       } else {
@@ -1609,18 +1658,28 @@
       });
     }
 
-    function showTicketSubmittedDialog(ticketId, zendeskUrl) {
+    function showTicketSubmittedDialog(ticketId, zendeskUrl, summary) {
       return new Promise((resolve) => {
         const overlay = document.createElement("div");
-        overlay.className = "fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4";
+        overlay.className = "fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 overflow-y-auto";
         const ticketLink = zendeskUrl ? `<a class="mt-3 inline-block text-sm font-semibold text-blue-700 underline dark:text-blue-300" target="_blank" rel="noopener" href="${escapeHtml(zendeskUrl)}">Open Zendesk ticket #${escapeHtml(ticketId || "")}</a>` : "";
-        overlay.innerHTML = `<div class="panel w-full max-w-md rounded-2xl p-6 shadow-xl text-center" role="dialog" aria-modal="true" aria-labelledby="ticketSubmittedTitle"><div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 text-2xl">✓</div><h3 id="ticketSubmittedTitle" class="text-xl font-bold mt-4">Discovery submitted successfully</h3><p class="muted text-sm mt-2">Your discovery session has been submitted and the Zendesk ticket has been created${ticketId ? ` (Ticket #${escapeHtml(ticketId)})` : ""}.</p>${ticketLink}<div class="mt-6"><button type="button" data-discovery-home class="w-full rounded-lg bg-blue-700 hover:bg-blue-800 px-5 py-3 text-sm font-semibold text-white">Back to discovery home</button></div></div>`;
+        overlay.innerHTML = `<div class="panel w-full max-w-2xl rounded-2xl p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="ticketSubmittedTitle"><div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 text-2xl">✓</div><h3 id="ticketSubmittedTitle" class="text-xl font-bold mt-4 text-center">Discovery submitted successfully</h3><p class="muted text-sm mt-2 text-center">Your discovery session has been submitted and the Zendesk ticket has been created${ticketId ? ` (Ticket #${escapeHtml(ticketId)})` : ""}.</p><div class="text-center">${ticketLink}</div><div id="submittedSummaryPanel" class="hidden mt-5 rounded-xl border borderline p-4 max-h-[50vh] overflow-y-auto"><h4 class="font-semibold mb-3">Project summary</h4><div id="submittedSummaryContent" class="space-y-3 text-sm"></div></div><div class="mt-6 flex flex-col sm:flex-row justify-end gap-2"><button type="button" data-view-submitted-summary class="rounded-lg border px-5 py-3 text-sm font-semibold soft">View Summary</button><button type="button" data-discovery-home class="rounded-lg bg-blue-700 hover:bg-blue-800 px-5 py-3 text-sm font-semibold text-white">Return to home page</button></div></div>`;
         const finish = () => { document.removeEventListener("keydown", onKey); overlay.remove(); resolve(); };
         const onKey = (event) => { if (event.key === "Escape") finish(); };
-        overlay.addEventListener("click", (event) => { if (event.target === overlay || event.target.closest("[data-discovery-home]")) finish(); });
+        overlay.addEventListener("click", (event) => {
+          if (event.target === overlay || event.target.closest("[data-discovery-home]")) finish();
+          if (event.target.closest("[data-view-submitted-summary]")) {
+            const panel = overlay.querySelector('#submittedSummaryPanel');
+            panel.classList.toggle('hidden');
+            const summaryButton = overlay.querySelector("[data-view-submitted-summary]");
+            summaryButton.textContent = panel.classList.contains("hidden") ? "View Summary" : "Back";
+            if (!panel.classList.contains('hidden')) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        });
+        overlay.querySelector('#submittedSummaryContent').innerHTML = renderSessionSummary(summary || {});
         document.addEventListener("keydown", onKey);
         document.body.appendChild(overlay);
-        overlay.querySelector("[data-discovery-home]").focus();
+        overlay.querySelector("[data-view-submitted-summary]").focus();
       });
     }
 
@@ -1629,6 +1688,12 @@
       pending = null;
       session = null;
       uploadedDocumentContext = [];
+      uploadedDocumentFiles = [];
+      detailsFields.forEach((field) => { const input = $(field); if (input) input.value = ""; });
+      if ($("sessionVisibility")) $("sessionVisibility").value = "private";
+      if ($("sessionTeam")) $("sessionTeam").value = "";
+      if ($("contextFiles")) $("contextFiles").value = "";
+      if ($("projectDescription")) $("projectDescription").value = "";
       show("workspace", false);
       show("review", false);
       show("setup", true);
@@ -2293,7 +2358,8 @@
           console.warn("Ticket was created, but the session status could not be refreshed:", statusError);
         }
         $("submitStatus").textContent = "Ticket submitted successfully.";
-        await showTicketSubmittedDialog(r.ticketId, r.zendeskUrl);
+        // Use the exact structured summary that the backend used to compose this Zendesk ticket.
+        await showTicketSubmittedDialog(r.ticketId, r.zendeskUrl, r.summary || {});
         returnToDiscoveryHome();
       } catch (e) {
         $("submitStatus").textContent = e.message;
@@ -2502,8 +2568,6 @@
         console.warn("Teams could not be loaded:", e.message);
       }
     }
-    let employeesPage = 1;
-    const EMPLOYEES_PAGE_SIZE = 10;
     function renderEmployees() {
       const host = $("employeesList");
       const roleFilter = $("employeeRoleFilter")?.value || "all";
@@ -2515,73 +2579,23 @@
         const searchMatch = !q || `${u.full_name || ""} ${u.email || ""}`.toLowerCase().includes(q);
         return roleMatch && statusMatch && searchMatch;
       });
-      const totalPages = Math.max(1, Math.ceil(filtered.length / EMPLOYEES_PAGE_SIZE));
-      employeesPage = Math.min(Math.max(1, employeesPage), totalPages);
-      const startIndex = (employeesPage - 1) * EMPLOYEES_PAGE_SIZE;
-      const visible = filtered.slice(startIndex, startIndex + EMPLOYEES_PAGE_SIZE);
-      host.innerHTML = filtered.length ? `
-        <div class="overflow-x-auto rounded-xl border borderline">
-          <table class="w-full min-w-[900px] text-sm text-left">
-            <thead class="bg-slate-100 dark:bg-slate-800">
-              <tr>
-                <th class="px-4 py-3 font-semibold">Employee</th>
-                <th class="px-4 py-3 font-semibold">Role</th>
-                <th class="px-4 py-3 font-semibold">Team</th>
-                <th class="px-4 py-3 font-semibold">Account status</th>
-                <th class="px-4 py-3 font-semibold">Setup status</th>
-                <th class="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y borderline">
-              ${visible.map(u => {
-                const pending = !u.password_setup_completed;
-                const isAdmin = u.role === "admin";
-                return `<tr data-employee="${escapeHtml(u.id)}" class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                  <td class="px-4 py-3">
-                    <div class="font-semibold">${escapeHtml(u.full_name || "Unnamed employee")}</div>
-                    <div class="muted text-xs break-all">${escapeHtml(u.email || "")}</div>
-                  </td>
-                  <td class="px-4 py-3">
-                    <select class="field !w-32" data-edit-role="${escapeHtml(u.id)}" aria-label="Role for ${escapeHtml(u.full_name || u.email || "employee")}">
-                      <option value="presales" ${u.role === "presales" ? "selected" : ""}>Presales</option>
-                      <option value="admin" ${isAdmin ? "selected" : ""}>Admin</option>
-                    </select>
-                  </td>
-                  <td class="px-4 py-3">
-                    ${isAdmin
-                      ? '<span class="muted text-xs italic">Admins don\'t have teams</span>'
-                      : `<select class="field !w-40" data-edit-team="${escapeHtml(u.id)}" aria-label="Team for ${escapeHtml(u.full_name || u.email || "employee")}"><option value="">No team</option>${teamOptionsHtml(u.team_id)}</select>`}
-                  </td>
-                  <td class="px-4 py-3">
-                    <select class="field !w-32" data-edit-active="${escapeHtml(u.id)}" aria-label="Account status">
-                      <option value="true" ${u.is_active !== false ? "selected" : ""}>Active</option>
-                      <option value="false" ${u.is_active === false ? "selected" : ""}>Inactive</option>
-                    </select>
-                  </td>
-                  <td class="px-4 py-3">
-                    <span class="inline-flex whitespace-nowrap text-xs rounded-full px-2.5 py-1 ${pending ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}">${pending ? "Pending setup" : "Account created"}</span>
-                  </td>
-                  <td class="px-4 py-3">
-                    <div class="flex justify-end gap-2">
-                      <button class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 text-xs font-semibold" data-save-employee="${escapeHtml(u.id)}">Save</button>
-                      <button class="rounded-lg border border-red-300 text-red-700 hover:bg-red-50 px-3 py-2 text-xs font-semibold" data-delete-employee="${escapeHtml(u.id)}">Delete</button>
-                    </div>
-                  </td>
-                </tr>`;
-              }).join("")}
-            </tbody>
-          </table>
-        </div>
-        <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
-          <p class="muted text-xs">Showing ${startIndex + 1}–${Math.min(startIndex + EMPLOYEES_PAGE_SIZE, filtered.length)} of ${filtered.length} accounts</p>
-          <div class="flex items-center gap-2">
-            <button type="button" id="employeesPrevPage" class="rounded-lg border px-3 py-2 text-sm soft" ${employeesPage <= 1 ? "disabled" : ""}>Previous</button>
-            <span class="muted text-xs px-1">Page ${employeesPage} of ${totalPages}</span>
-            <button type="button" id="employeesNextPage" class="rounded-lg border px-3 py-2 text-sm soft" ${employeesPage >= totalPages ? "disabled" : ""}>Next</button>
-          </div>
-        </div>` : '<p class="muted text-sm rounded-xl border borderline p-6 text-center">No employees match these filters.</p>';
-      $("employeesPrevPage")?.addEventListener("click", () => { employeesPage--; renderEmployees(); });
-      $("employeesNextPage")?.addEventListener("click", () => { employeesPage++; renderEmployees(); });
+      host.innerHTML = filtered.length ? filtered.map(u => {
+        const pending = !u.password_setup_completed;
+        const isAdmin = u.role === "admin";
+        return `<article class="border-b borderline py-4" data-employee="${escapeHtml(u.id)}">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0"><div class="font-semibold">${escapeHtml(u.full_name || "Unnamed employee")}</div><div class="muted text-xs break-all">${escapeHtml(u.email || "")}</div>
+                <div class="muted text-xs mt-1">${isAdmin ? "Administrator account" : escapeHtml(u.team_name || "No team")}</div>
+                <div class="flex flex-wrap gap-2 mt-2"><span class="text-xs rounded-full px-2.5 py-1 ${pending ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}">${pending ? "Pending account setup" : "Account created"}</span><span class="text-xs rounded-full px-2.5 py-1 ${u.is_active === false ? "bg-slate-200 text-slate-700" : "bg-emerald-100 text-emerald-900"}">${u.is_active === false ? "Inactive" : "Active"}</span></div>
+              </div>
+              <div class="flex flex-wrap items-end gap-2"><label class="text-xs muted">Role<select class="field mt-1 !w-32" data-edit-role="${escapeHtml(u.id)}"><option value="presales" ${u.role === "presales" ? "selected" : ""}>Presales</option><option value="admin" ${isAdmin ? "selected" : ""}>Admin</option></select></label>
+                <label class="text-xs muted">Team<select class="field mt-1 !w-40" data-edit-team="${escapeHtml(u.id)}" ${isAdmin ? "disabled" : ""}><option value="">No team</option>${teamOptionsHtml(u.team_id)}</select></label>
+                <label class="text-xs muted">Account status<select class="field mt-1 !w-32" data-edit-active="${escapeHtml(u.id)}"><option value="true" ${u.is_active !== false ? "selected" : ""}>Active</option><option value="false" ${u.is_active === false ? "selected" : ""}>Inactive</option></select></label>
+                <button class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 text-xs font-semibold" data-save-employee="${escapeHtml(u.id)}">Save changes</button>
+                <button class="rounded-lg border border-red-300 text-red-700 px-3 py-2 text-xs" data-delete-employee="${escapeHtml(u.id)}">Delete</button>
+              </div>
+            </div></article>`;
+      }).join("") : '<p class="muted text-sm">No employees match these filters.</p>';
     }
     function teamOptionsHtml(selectedTeamId) {
       return [...$("employeeTeam").options].filter(o => o.value).map(o => `<option value="${escapeHtml(o.value)}" ${o.value === selectedTeamId ? "selected" : ""}>${escapeHtml(o.textContent)}</option>`).join("");
@@ -2612,9 +2626,29 @@
         await loadEmployees();
       });
     }
+    function confirmDeleteEmployee(employee) {
+      return new Promise((resolve) => {
+        const employeeName = employee.full_name || employee.email || "this user";
+        const employeeRole = employee.role === "admin" ? "Administrator" : "Presales agent";
+        const overlay = document.createElement("div");
+        overlay.className = "fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/60 p-4";
+        overlay.innerHTML = `<div class="panel w-full max-w-lg rounded-2xl p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="deleteEmployeeTitle"><div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 text-2xl">!</div><h3 id="deleteEmployeeTitle" class="text-xl font-bold mt-4 text-center">Delete user account?</h3><p class="muted text-sm mt-2 text-center">You are about to permanently delete this user's account.</p><div class="mt-5 rounded-xl border borderline p-4 space-y-2 text-sm"><div><span class="muted">Name</span><div class="font-semibold">${escapeHtml(employeeName)}</div></div><div><span class="muted">Email</span><div class="font-semibold break-all">${escapeHtml(employee.email || "Not available")}</div></div><div><span class="muted">Role</span><div class="font-semibold">${escapeHtml(employeeRole)}</div></div></div><div class="mt-4 rounded-xl border border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/30 p-3 text-sm text-red-800 dark:text-red-200"><b>This action cannot be undone.</b><p class="mt-1">The user's login account and associated discovery data owned by this user will be permanently removed.</p></div><div class="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2"><button type="button" data-delete-cancel class="rounded-lg border px-5 py-3 text-sm font-semibold soft">Cancel</button><button type="button" data-delete-confirm class="rounded-lg bg-red-700 hover:bg-red-800 px-5 py-3 text-sm font-semibold text-white">Yes, delete account</button></div></div>`;
+        const finish = (value) => { document.removeEventListener("keydown", onKey); overlay.remove(); resolve(value); };
+        const onKey = (event) => { if (event.key === "Escape") finish(false); };
+        overlay.addEventListener("click", (event) => {
+          if (event.target === overlay || event.target.closest("[data-delete-cancel]")) finish(false);
+          if (event.target.closest("[data-delete-confirm]")) finish(true);
+        });
+        document.addEventListener("keydown", onKey);
+        document.body.appendChild(overlay);
+        overlay.querySelector("[data-delete-cancel]").focus();
+      });
+    }
+
     async function deleteEmployee(id) {
       const employee = employeesCache.find(u => u.id === id);
-      if (!employee || !confirm(`Permanently delete ${employee.email || employee.full_name || "this user"}? This also removes the Supabase Auth account and associated discovery data. This cannot be undone.`)) return;
+      if (!employee) return;
+      if (!(await confirmDeleteEmployee(employee))) return;
       const btn = document.querySelector(`[data-delete-employee="${CSS.escape(id)}"]`);
       await withButtonLoading(btn, "Deleting…", async () => {
         await api(`/api/admin/employees/${id}`, {}, "DELETE");
@@ -2702,7 +2736,7 @@
         if (currentRole === "admin") {
           show("adminTabs", true);
           show("employeeTabs", false);
-          setTab("employees");
+          setTab("tracking");
           await loadTeams();
           await Promise.all([loadEmployees(), loadAllSessions()]);
         } else {
@@ -2869,9 +2903,9 @@
     $("refreshMySessionsBtn").onclick = () => withButtonLoading($("refreshMySessionsBtn"), "Refreshing…", loadMySessions);
     $("refreshAllSessionsBtn").onclick = () => withButtonLoading($("refreshAllSessionsBtn"), "Refreshing…", loadAllSessions);
     $("refreshEmployeesBtn").onclick = () => withButtonLoading($("refreshEmployeesBtn"), "Refreshing…", loadEmployees);
-    $("employeeRoleFilter").addEventListener("change", () => { employeesPage = 1; renderEmployees(); });
-    $("employeeStatusFilter").addEventListener("change", () => { employeesPage = 1; renderEmployees(); });
-    $("employeeSearch").addEventListener("input", () => { employeesPage = 1; renderEmployees(); });
+    $("employeeRoleFilter").addEventListener("change", renderEmployees);
+    $("employeeStatusFilter").addEventListener("change", renderEmployees);
+    $("employeeSearch").addEventListener("input", renderEmployees);
     $("employeesList").addEventListener("click", async (e) => {
       const save = e.target.closest("[data-save-employee]");
       const del = e.target.closest("[data-delete-employee]");
@@ -2889,13 +2923,10 @@
       const roleSelect = e.target.closest("[data-edit-role]");
       if (!roleSelect) return;
       const id = roleSelect.dataset.editRole;
-      const row = roleSelect.closest("tr");
-      const teamCell = row?.children?.[2];
-      if (roleSelect.value === "admin") {
-        if (teamCell) teamCell.innerHTML = '<span class="muted text-xs italic">Admins have no team</span>';
-      } else if (teamCell) {
-        const employee = employeesCache.find(u => u.id === id);
-        teamCell.innerHTML = `<select class="field !w-40" data-edit-team="${escapeHtml(id)}" aria-label="Team for employee"><option value="">No team</option>${teamOptionsHtml(employee?.team_id || null)}</select>`;
+      const teamSelect = document.querySelector(`[data-edit-team="${CSS.escape(id)}"]`);
+      if (teamSelect) {
+        teamSelect.disabled = roleSelect.value === "admin";
+        if (teamSelect.disabled) teamSelect.value = "";
       }
     });
     $("createTeamForm").addEventListener("submit", async (e) => {
@@ -2974,12 +3005,24 @@
         $("detailTitle").textContent = s.project_name || s.projectName || s.company_name || s.companyName || "Discovery session";
         $("detailMeta").textContent =
           `${s.company_name || s.companyName || "Company"} · ${s.owner?.full_name || s.owner_name || "Employee"} · ${statusLabel(s.status)} · Updated ${formatDate(s.updated_at || s.updatedAt)}`;
+        const ticketId = s.zendesk_ticket_id || s.zendeskTicketId;
+        $("detailTicketLink").innerHTML = ticketId && d.zendeskUrl
+          ? `<a class="font-semibold text-blue-700 underline dark:text-blue-300" href="${escapeHtml(d.zendeskUrl)}" target="_blank" rel="noopener">Open Zendesk ticket #${escapeHtml(ticketId)}</a>`
+          : ticketId ? `<span class="muted">Zendesk ticket #${escapeHtml(ticketId)}</span>` : "";
         $("detailSummary").innerHTML = '<p class="muted">Generating summary…</p>';
         try {
           const summaryResponse = await api(`/api/sessions/${id}/summary`, undefined, "GET");
           $("detailSummary").innerHTML = renderSessionSummary(summaryResponse.summary || {});
         } catch (summaryError) {
           $("detailSummary").innerHTML = `<p class="text-sm text-amber-700">The AI summary could not be loaded: ${escapeHtml(summaryError.message)}. You can still review the full discussion below.</p>`;
+        }
+        $("detailDocuments").innerHTML = '<p class="muted">Loading submitted documents…</p>';
+        try {
+          const documentResponse = await api(`/api/sessions/${id}/documents`, undefined, "GET");
+          const documents = documentResponse.documents || [];
+          $("detailDocuments").innerHTML = documents.length ? documents.map(doc => `<div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border borderline p-3"><div class="min-w-0"><div class="font-medium break-all">${escapeHtml(doc.fileName)}</div><div class="muted text-xs">${doc.size ? `${(doc.size / 1024 / 1024).toFixed(2)} MB · ` : ""}${escapeHtml(formatDate(doc.uploadedAt))}</div></div><div class="flex flex-wrap items-center gap-2">${(/\\.pdf$/i.test(doc.fileName || "") || String(doc.mimeType || "").toLowerCase() === "application/pdf") ? `<a class="rounded-lg border px-3 py-2 text-xs font-semibold soft" href="${escapeHtml(doc.viewUrl)}" target="_blank" rel="noopener">View</a>` : `<span class="muted text-xs italic">No preview available</span>`}<a class="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white" href="${escapeHtml(doc.downloadUrl)}" target="_blank" rel="noopener">Download</a></div></div>`).join("") : '<p class="muted">No original documents were saved with this session.</p>';
+        } catch (documentError) {
+          $("detailDocuments").innerHTML = `<p class="text-sm text-amber-700">${escapeHtml(documentError.message)}</p>`;
         }
         const answers = s.answers || [];
         $("detailAnswers").innerHTML = answers.length

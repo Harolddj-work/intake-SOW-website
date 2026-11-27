@@ -600,7 +600,10 @@ app.get('/api/sessions/:id', requireAuth, async (req, res) => {
         owner: display.owner,
         owner_name: display.owner_name,
         team: display.team
-      }
+      },
+      zendeskUrl: record.zendesk_ticket_id && process.env.ZENDESK_SUBDOMAIN
+        ? `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${record.zendesk_ticket_id}`
+        : null
     });
   } catch (error) {
     dbError(error, res, 'Unable to load this session.');
@@ -636,6 +639,124 @@ app.get('/api/sessions/:id/summary', requireAuth, async (req, res) => {
   }
 });
 
+// Store original discovery documents in a private Supabase Storage bucket.
+// Only the session owner and administrators can upload or retrieve originals.
+const DISCOVERY_DOCUMENT_BUCKET = 'discovery-documents';
+async function ensureDiscoveryDocumentBucket() {
+  const { data, error } = await supabaseAdmin.storage.getBucket(DISCOVERY_DOCUMENT_BUCKET);
+  if (data && !error) return;
+  const created = await supabaseAdmin.storage.createBucket(DISCOVERY_DOCUMENT_BUCKET, {
+    public: false,
+    fileSizeLimit: '20MB'
+  });
+  if (created.error && !/already exists/i.test(created.error.message || '')) throw created.error;
+}
+
+function canManageSessionDocuments(user, record) {
+  return Boolean(record && user && (user.role === 'admin' || record.owner_id === user.id));
+}
+
+app.post('/api/sessions/:id/documents', requireAuth, async (req, res) => {
+  try {
+    const record = await getSessionRecord(req.params.id);
+    if (!record) return res.status(404).json({ success: false, error: 'Session not found.' });
+    if (!canManageSessionDocuments(req.user, record)) {
+      return res.status(403).json({ success: false, error: 'You can only upload documents to your own sessions.' });
+    }
+    if (['submitted', 'completed', 'cancelled'].includes(record.status)) {
+      return res.status(409).json({ success: false, error: 'Documents cannot be added after submission.' });
+    }
+
+    const { fileName, mimeType, base64 } = req.body || {};
+    if (!fileName || typeof base64 !== 'string' || !base64) {
+      return res.status(400).json({ success: false, error: 'A document file is required.' });
+    }
+    const buffer = Buffer.from(base64, 'base64');
+    if (!buffer.length || buffer.length > 20 * 1024 * 1024) {
+      return res.status(413).json({ success: false, error: 'Each document must be smaller than 20 MB.' });
+    }
+    await ensureDiscoveryDocumentBucket();
+    const path = require('path');
+    const safeName = path.basename(String(fileName)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 150) || 'supporting-document';
+    const storagePath = `${record.id}/${Date.now()}-${require('crypto').randomUUID()}-${safeName}`;
+    const contentType = safeText(mimeType, 120) || 'application/octet-stream';
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(DISCOVERY_DOCUMENT_BUCKET)
+      .upload(storagePath, buffer, { contentType, upsert: false });
+    if (uploadError) throw uploadError;
+
+    const notes = record.checkpoint_notes && typeof record.checkpoint_notes === 'object' ? record.checkpoint_notes : {};
+    const context = notes.__documentContext && typeof notes.__documentContext === 'object' ? notes.__documentContext : {};
+    const documents = Array.isArray(context.documents) ? context.documents : [];
+    const storedDocuments = Array.isArray(context.storedDocuments) ? context.storedDocuments : [];
+    storedDocuments.push({ fileName: safeText(fileName, 180), mimeType: contentType, size: buffer.length, storagePath, uploadedAt: new Date().toISOString() });
+    const updatedNotes = { ...notes, __documentContext: { ...context, documents, storedDocuments } };
+    const { error: updateError } = await supabaseAdmin.from('discovery_sessions')
+      .update({ checkpoint_notes: updatedNotes }).eq('id', record.id);
+    if (updateError) {
+      await supabaseAdmin.storage.from(DISCOVERY_DOCUMENT_BUCKET).remove([storagePath]).catch(() => {});
+      throw updateError;
+    }
+    res.status(201).json({ success: true, document: { fileName: safeText(fileName, 180), size: buffer.length } });
+  } catch (error) {
+    console.error('Discovery document upload error:', error);
+    dbError(error, res, 'Unable to save the original document.');
+  }
+});
+
+app.get('/api/sessions/:id/documents', requireAuth, async (req, res) => {
+  try {
+    const record = await getSessionRecord(req.params.id);
+    if (!record) return res.status(404).json({ success: false, error: 'Session not found.' });
+    if (!canManageSessionDocuments(req.user, record)) {
+      return res.status(403).json({ success: false, error: 'You can only view documents from your own sessions.' });
+    }
+    const notes = record.checkpoint_notes && typeof record.checkpoint_notes === 'object' ? record.checkpoint_notes : {};
+    let stored = Array.isArray(notes.__documentContext?.storedDocuments)
+      ? notes.__documentContext.storedDocuments
+      : [];
+    const storage = supabaseAdmin.storage.from(DISCOVERY_DOCUMENT_BUCKET);
+
+    // Recover originals from the session's Storage folder if an older autosave
+    // overwrote the storedDocuments metadata before the preservation fix existed.
+    if (!stored.length) {
+      const { data: files, error: listError } = await storage.list(record.id, { limit: 100 });
+      if (listError && !/not found|does not exist/i.test(listError.message || '')) throw listError;
+      stored = (files || []).filter(file => file && file.name && (file.id || file.metadata)).map(file => ({
+        fileName: file.name.replace(/^\d+-[0-9a-f-]+-/i, ''),
+        mimeType: file.metadata?.mimetype || 'application/octet-stream',
+        size: file.metadata?.size || 0,
+        storagePath: `${record.id}/${file.name}`,
+        uploadedAt: file.created_at || file.updated_at || null
+      }));
+      if (stored.length) {
+        const context = notes.__documentContext && typeof notes.__documentContext === 'object' ? notes.__documentContext : {};
+        const { error: repairError } = await supabaseAdmin.from('discovery_sessions')
+          .update({ checkpoint_notes: { ...notes, __documentContext: { ...context, storedDocuments: stored } } })
+          .eq('id', record.id);
+        if (repairError) console.error('Could not restore document metadata:', repairError);
+      }
+    }
+
+    const documents = [];
+    for (const doc of stored) {
+      if (!doc.storagePath) continue;
+      const [viewResult, downloadResult] = await Promise.all([
+        storage.createSignedUrl(doc.storagePath, 60 * 5),
+        storage.createSignedUrl(doc.storagePath, 60 * 5, { download: doc.fileName })
+      ]);
+      if (viewResult.error) throw viewResult.error;
+      if (downloadResult.error) throw downloadResult.error;
+      documents.push({ fileName: doc.fileName, mimeType: doc.mimeType, size: doc.size, uploadedAt: doc.uploadedAt, viewUrl: viewResult.data.signedUrl, downloadUrl: downloadResult.data.signedUrl });
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, documents });
+  } catch (error) {
+    console.error('Discovery document listing error:', error);
+    dbError(error, res, 'Unable to load submitted documents.');
+  }
+});
+
 app.patch('/api/sessions/:id', requireAuth, async (req, res) => {
   try {
     const record = await getSessionRecord(req.params.id);
@@ -660,6 +781,42 @@ app.patch('/api/sessions/:id', requireAuth, async (req, res) => {
       if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) {
         patch[field] = req.body[field];
       }
+    }
+
+    // The browser's session object may predate an original-file upload. Preserve
+    // Storage metadata written by /documents when autosave sends checkpoint_notes
+    // from that older in-memory object, otherwise the file remains in Storage but
+    // becomes undiscoverable from the session record.
+    if (patch.checkpoint_notes && typeof patch.checkpoint_notes === 'object' && !Array.isArray(patch.checkpoint_notes)) {
+      const existingNotes = record.checkpoint_notes && typeof record.checkpoint_notes === 'object'
+        ? record.checkpoint_notes
+        : {};
+      const incomingNotes = patch.checkpoint_notes;
+      const existingDocumentContext = existingNotes.__documentContext && typeof existingNotes.__documentContext === 'object'
+        ? existingNotes.__documentContext
+        : {};
+      const incomingDocumentContext = incomingNotes.__documentContext && typeof incomingNotes.__documentContext === 'object'
+        ? incomingNotes.__documentContext
+        : {};
+      const existingStoredDocuments = Array.isArray(existingDocumentContext.storedDocuments)
+        ? existingDocumentContext.storedDocuments
+        : [];
+      const incomingStoredDocuments = Array.isArray(incomingDocumentContext.storedDocuments)
+        ? incomingDocumentContext.storedDocuments
+        : [];
+      const storedDocumentsByPath = new Map();
+      [...existingStoredDocuments, ...incomingStoredDocuments].forEach(doc => {
+        if (doc && doc.storagePath) storedDocumentsByPath.set(doc.storagePath, doc);
+      });
+      patch.checkpoint_notes = {
+        ...existingNotes,
+        ...incomingNotes,
+        __documentContext: {
+          ...existingDocumentContext,
+          ...incomingDocumentContext,
+          storedDocuments: [...storedDocumentsByPath.values()]
+        }
+      };
     }
 
     if (['submitted', 'completed', 'cancelled'].includes(record.status)) {
@@ -1661,7 +1818,8 @@ async function formatTicket(data) {
 
   lines.push('', 'Submission: Submitted for internal review.');
 
-  return lines.join('\n');
+  summary.clientFollowUps = [...new Set(clientFollowUps)];
+  return { body: lines.join('\n'), summary };
 }
 
 // Compare evidence extracted from multiple uploaded documents before it is used to skip discovery questions.
@@ -2377,7 +2535,8 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
 
     // Do not block Zendesk submission for discovery gaps or validation warnings.
     // Only actual submission requirements (contact details, an answer record, and Zendesk availability) are enforced here.
-    const ticketBody = await formatTicket(data);
+    const ticketContent = await formatTicket(data);
+    const ticketBody = ticketContent.body;
     const token = await getZendeskAccessToken();
 
     const zd = await fetch(
@@ -2446,6 +2605,7 @@ app.post('/api/submit-intake', requireAuth, async (req, res) => {
       message: 'SOW discovery submitted to Zendesk.',
       ticketId: ticket.id,
       ticketStatus: ticket.status,
+      summary: ticketContent.summary,
       zendeskUrl: `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${ticket.id}`
     });
   } catch (error) {
