@@ -606,20 +606,41 @@
           <h2 class="text-xl font-bold">Review discovery summary</h2>
           <button id="closeReviewBtn" type="button" class="rounded-lg border px-4 py-2 text-sm font-semibold soft hover:opacity-80">← Back</button>
         </div>
-        <p class="muted text-sm mt-2">
-          Review the recorded question-and-answer history. Items marked unknown or accepted remain visibly flagged for
-          the project team.
-        </p>
-        <div id="reviewContent" class="space-y-5 mt-5"></div>
+        <button id="reviewContentToggle" type="button" class="hidden mt-3 rounded-lg border px-4 py-2 text-sm font-semibold soft" aria-expanded="true" aria-controls="reviewContentPanel">Hide discovery details</button>
+        <div id="reviewContentPanel" class="mt-3">
+          <p class="muted text-sm">
+            Review the recorded question-and-answer history. Items marked unknown or accepted remain visibly flagged for
+            the project team.
+          </p>
+          <div id="reviewContent" class="space-y-5 mt-5"></div>
+        </div>
         <div class="border-t borderline mt-6 pt-5 flex flex-wrap gap-3">
           <button id="validateBtn"
             class="rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-3">Run final completeness
-            check</button><button id="submitTicketBtn" disabled
-            class="rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-5 py-3">
-            Confirm and submit to Zendesk</button>
+            check</button>
         </div>
         <div id="validationResults" class="hidden mt-4 rounded-xl border borderline p-4 text-sm" role="status"></div>
-        <p id="submitStatus" class="text-sm mt-3" role="status"></p>
+        <section id="ticketSummaryPanel" class="hidden mt-5 rounded-xl border borderline p-4 sm:p-5" aria-labelledby="ticketSummaryTitle">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 id="ticketSummaryTitle" class="text-lg font-bold">Ticket summary preview</h3>
+              <p class="muted text-sm mt-1">Review the summary that will be included in the Zendesk ticket. Use Edit summary to make changes.</p>
+            </div>
+          </div>
+          <div id="ticketSummaryReadView" class="mt-4 space-y-3 text-sm"></div>
+          <div id="ticketSummaryTextEditorWrap" class="hidden mt-4">
+            <label for="ticketSummaryTextInput" class="block text-sm font-semibold">Edit the complete summary</label>
+            <textarea id="ticketSummaryTextInput" rows="18" maxlength="30000" class="field mt-2 w-full rounded-lg border p-3 font-normal" aria-describedby="ticketSummaryEditHint"></textarea>
+            <p id="ticketSummaryEditHint" class="muted text-xs mt-1">Edit the complete summary in this single text area. These exact changes will be sent in the Zendesk ticket.</p>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button id="editTicketSummaryBtn" type="button" class="rounded-lg border px-4 py-2.5 text-sm font-semibold soft">Edit summary</button>
+            <button id="validateEditedSummaryBtn" type="button" class="hidden rounded-lg bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 text-sm font-semibold">Run final summary check</button>
+            <button id="submitTicketBtn" type="button" disabled class="rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-3 font-semibold">Confirm and submit to Zendesk</button>
+            <p id="ticketSummaryStatus" class="text-sm muted" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+        <p id="submitStatus" class="text-sm mt-3 whitespace-pre-line" role="status"></p>
       </section>
     </section>
     <!-- /employeeDiscoveryTab -->
@@ -856,7 +877,16 @@
       mySessionsCache = [],
       employeesCache = [],
       mySessionsPage = 1,
-      allSessionsPage = 1;
+      allSessionsPage = 1,
+      ticketSummaryBaseline = null,
+      ticketSummaryBaselineText = '',
+      ticketSummaryText = '',
+      ticketSummaryEditMode = false,
+      ticketSummaryValidationToken = null,
+      ticketSummaryBaselineValidationToken = null,
+      ticketSummaryValidatedSnapshot = null,
+      ticketSummaryRejectedSnapshot = null,
+      ticketSummaryReviewMessage = '';
     const SESSIONS_PAGE_SIZE = 10;
     const CACHE_TTL_MS = 5 * 60 * 1000;
     function cacheKey(name) { return `sow-intake:${currentUser?.id || "guest"}:${name}`; }
@@ -976,9 +1006,9 @@
       }
     }
 
-    async function api(url, body, method = "POST") {
+    async function api(url, body, method = "POST", timeoutMs = 45000) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 45000);
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const {
           data: { session: authSession },
@@ -1001,6 +1031,33 @@
         clearTimeout(timer);
       }
     }
+    function sessionMetadataForSave() {
+      return {
+        client_name: session.clientName,
+        company_name: session.companyName,
+        contact_name: session.contactName,
+        contact_email: session.contactEmail,
+        project_name: session.projectName,
+        project_type: session.projectType,
+        project_description: session.projectDescription,
+        checkpoint_index: session.checkpointIndex,
+        max_checkpoint_index: session.maxCheckpointIndex,
+        checkpoint_notes: session.checkpointNotes,
+        follow_up_counts: session.followUpCounts,
+        status: session.status,
+        visibility: session.visibility,
+        team_id: session.team_id || null,
+      };
+    }
+    async function persistSessionNow() {
+      if (!session?.id) return;
+      clearTimeout(saveTimer);
+      await api(`/api/sessions/${session.id}`, sessionMetadataForSave(), "PATCH");
+      for (let i = 0; i < (session.answers || []).length; i++) {
+        await api(`/api/sessions/${session.id}/answers`, { ...session.answers[i], sequence_number: i + 1 }, "POST");
+      }
+      if ($("autosaveStatus")) $("autosaveStatus").textContent = "All changes saved";
+    }
     function save() {
       if (!session?.id) return;
       const autosaveStatus = $("autosaveStatus");
@@ -1009,26 +1066,7 @@
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
         try {
-          const metadata = {
-            client_name: session.clientName,
-            company_name: session.companyName,
-            contact_name: session.contactName,
-            contact_email: session.contactEmail,
-            project_name: session.projectName,
-            project_type: session.projectType,
-            project_description: session.projectDescription,
-            checkpoint_index: session.checkpointIndex,
-            max_checkpoint_index: session.maxCheckpointIndex,
-            checkpoint_notes: session.checkpointNotes,
-            follow_up_counts: session.followUpCounts,
-            status: session.status,
-            visibility: session.visibility,
-            team_id: session.team_id || null,
-          };
-          await api(`/api/sessions/${session.id}`, metadata, "PATCH");
-          for (let i = 0; i < (session.answers || []).length; i++) {
-            await api(`/api/sessions/${session.id}/answers`, { ...session.answers[i], sequence_number: i + 1 }, "POST");
-          }
+          await persistSessionNow();
           if (autosaveStatus) autosaveStatus.textContent = "All changes saved";
         } catch (e) {
           if (autosaveStatus) autosaveStatus.textContent = "Autosave failed — retrying on next change";
@@ -1976,6 +2014,12 @@
         entry.needsReview = Boolean(!complete || ev.needsReview || ev.fallback);
         session.validationPassed = false;
         session.validationReport = null;
+        ticketSummaryBaseline = null;
+        ticketSummaryValidationToken = null;
+        ticketSummaryBaselineValidationToken = null;
+        ticketSummaryValidatedSnapshot = null;
+        $('ticketSummaryPanel').classList.add('hidden');
+        $('submitTicketBtn').disabled = true;
         save();
         preview();
         $('validationResults').classList.remove('hidden');
@@ -1990,13 +2034,233 @@
       }
     }
 
+    function ticketSummaryAsText(summary = {}) {
+      const sections = [];
+      const addSection = (title, value) => {
+        const values = Array.isArray(value) ? value.filter(Boolean) : value ? [value] : [];
+        if (values.length) sections.push(`${title}\n${values.map(item => `- ${item}`).join('\n')}`);
+      };
+      addSection('PROJECT OBJECTIVE', summary.objective);
+      addSection('BUSINESS REQUIREMENTS', summary.businessRequirements);
+      addSection('FUNCTIONAL REQUIREMENTS', summary.functionalRequirements);
+      addSection('SYSTEMS & DATA', summary.systemsAndData);
+      addSection('OPERATIONS & SERVICE LEVELS', summary.operations);
+      addSection('TIMELINE', [
+        summary.startDate ? `Start: ${summary.startDate}` : '',
+        summary.goLiveDate ? `Go-live: ${summary.goLiveDate}` : ''
+      ].filter(Boolean));
+      addSection('BUDGET', summary.budget);
+      addSection('DELIVERABLES', summary.deliverables);
+      addSection('ACCEPTANCE CRITERIA', summary.acceptance);
+      addSection('CLIENT FOLLOW-UPS', summary.clientFollowUps);
+      return sections.join('\n\n');
+    }
+    function ticketSummarySnapshot(text) {
+      return String(text ?? '').replace(/\r\n/g, '\n').trim();
+    }
+    function ticketSummaryContentSnapshot(text) {
+      const snapshot = ticketSummarySnapshot(text);
+      const order = new Map([
+        'PROJECT OBJECTIVE',
+        'BUSINESS REQUIREMENTS',
+        'FUNCTIONAL REQUIREMENTS',
+        'SYSTEMS & DATA',
+        'OPERATIONS & SERVICE LEVELS',
+        'TIMELINE',
+        'BUDGET',
+        'DELIVERABLES',
+        'ACCEPTANCE CRITERIA',
+        'CLIENT FOLLOW-UPS'
+      ].map((title, index) => [title, index]));
+      const blocks = snapshot.split(/\n\s*\n/).map(block => block.trim()).filter(Boolean);
+      const rankedBlocks = blocks.map((block, index) => {
+        const heading = block.split('\n', 1)[0].trim().replace(/:$/, '').replace(/\s+/g, ' ').toUpperCase();
+        return { block, index, rank: order.get(heading) };
+      });
+      if (rankedBlocks.length < 2 || rankedBlocks.some(block => block.rank === undefined)) return snapshot;
+      return rankedBlocks
+        .sort((a, b) => a.rank - b.rank || a.index - b.index)
+        .map(block => block.block)
+        .join('\n\n');
+    }
+    function ticketSummaryInputIssues(text) {
+      const trimmed = ticketSummarySnapshot(text);
+      if (!trimmed) return ['The summary cannot be empty.'];
+      if (trimmed.length > 30000) return ['The summary must be 30,000 characters or fewer.'];
+      return [];
+    }
+    function updateEditedSummaryState() {
+      if (!ticketSummaryBaseline || !session) return;
+      const rawSnapshot = ticketSummarySnapshot($('ticketSummaryTextInput').value);
+      const snapshot = ticketSummaryContentSnapshot(rawSnapshot);
+      const baselineSnapshot = ticketSummaryContentSnapshot(ticketSummaryBaselineText);
+      ticketSummaryText = $('ticketSummaryTextInput').value;
+      if (ticketSummaryRejectedSnapshot && snapshot !== ticketSummaryRejectedSnapshot) {
+        ticketSummaryRejectedSnapshot = null;
+        ticketSummaryReviewMessage = '';
+      }
+      const dirty = snapshot !== baselineSnapshot;
+      const checked = dirty && snapshot === ticketSummaryValidatedSnapshot;
+      const sectionOrderOnly = !dirty && rawSnapshot !== ticketSummaryBaselineText;
+      ticketSummaryValidationToken = !dirty
+        ? ticketSummaryBaselineValidationToken
+        : checked
+          ? ticketSummaryValidationToken
+          : null;
+      const issues = dirty ? ticketSummaryInputIssues(snapshot) : [];
+      const checkButton = $('validateEditedSummaryBtn');
+      checkButton.classList.toggle('hidden', !dirty);
+      checkButton.disabled = checked || issues.length > 0;
+      $('editTicketSummaryBtn').textContent = ticketSummaryEditMode ? 'Preview summary' : 'Edit summary';
+      $('submitTicketBtn').disabled = !session.validationPassed || issues.length > 0 || (dirty && !checked);
+      if (issues.length) {
+        $('ticketSummaryStatus').textContent = issues.join(' ');
+        $('ticketSummaryStatus').className = 'text-sm text-red-700';
+      } else if (!dirty && sectionOrderOnly) {
+        $('ticketSummaryStatus').textContent = 'Only section order changed. The approved summary content remains valid.';
+        $('ticketSummaryStatus').className = 'text-sm text-emerald-700';
+      } else if (!dirty) {
+        $('ticketSummaryStatus').textContent = 'No edits made. The summary is ready to submit.';
+        $('ticketSummaryStatus').className = 'text-sm text-emerald-700';
+      } else if (checked) {
+        $('ticketSummaryStatus').textContent = 'The edited summary passed the final review and is ready to submit.';
+        $('ticketSummaryStatus').className = 'text-sm text-emerald-700';
+      } else if (snapshot === ticketSummaryRejectedSnapshot) {
+        $('ticketSummaryStatus').textContent = ticketSummaryReviewMessage || 'The edited summary did not pass the final review.';
+        $('ticketSummaryStatus').className = 'text-sm text-red-700 whitespace-pre-line';
+      } else {
+        $('ticketSummaryStatus').textContent = 'Run the final summary check after editing before you can submit.';
+        $('ticketSummaryStatus').className = 'text-sm text-amber-700';
+      }
+    }
+    function renderTicketSummaryPreview() {
+      const content = ticketSummaryText === ticketSummaryBaselineText
+        ? renderSessionSummary(ticketSummaryBaseline || {})
+        : renderSessionSummary({ text: ticketSummaryText });
+      $('ticketSummaryReadView').innerHTML = content;
+    }
+    async function loadEditableTicketSummary(summaryResult = null) {
+      const result = summaryResult || await api(`/api/sessions/${session.id}/summary`, undefined, 'GET');
+      ticketSummaryBaseline = result.summary || {};
+      ticketSummaryBaselineText = ticketSummaryAsText(ticketSummaryBaseline);
+      ticketSummaryText = ticketSummaryBaselineText;
+      ticketSummaryBaselineValidationToken = result.summaryValidationToken || null;
+      ticketSummaryValidationToken = ticketSummaryBaselineValidationToken;
+      ticketSummaryEditMode = false;
+      $('ticketSummaryTextInput').value = ticketSummaryBaselineText;
+      ticketSummaryValidatedSnapshot = null;
+      ticketSummaryRejectedSnapshot = null;
+      ticketSummaryReviewMessage = '';
+      $('ticketSummaryReadView').classList.remove('hidden');
+      $('ticketSummaryTextEditorWrap').classList.add('hidden');
+      renderTicketSummaryPreview();
+      $('ticketSummaryPanel').classList.remove('hidden');
+      updateEditedSummaryState();
+    }
+    function toggleTicketSummaryEdit() {
+      if (!ticketSummaryBaseline) return;
+      ticketSummaryEditMode = !ticketSummaryEditMode;
+      if (ticketSummaryEditMode) {
+        $('ticketSummaryTextInput').value = ticketSummaryText;
+        $('ticketSummaryReadView').classList.add('hidden');
+        $('ticketSummaryTextEditorWrap').classList.remove('hidden');
+        $('ticketSummaryTextInput').focus();
+      } else {
+        ticketSummaryText = $('ticketSummaryTextInput').value.trim();
+        $('ticketSummaryTextInput').value = ticketSummaryText;
+        $('ticketSummaryTextEditorWrap').classList.add('hidden');
+        $('ticketSummaryReadView').classList.remove('hidden');
+        renderTicketSummaryPreview();
+      }
+      updateEditedSummaryState();
+    }
+    async function runEditedSummaryValidation() {
+      if (!session?.validationPassed || !ticketSummaryBaseline) return;
+      const button = $('validateEditedSummaryBtn');
+      const summaryText = ticketSummarySnapshot($('ticketSummaryTextInput').value);
+      const inputIssues = ticketSummaryInputIssues(summaryText);
+      if (inputIssues.length) {
+        $('ticketSummaryStatus').textContent = inputIssues.join(' ');
+        $('ticketSummaryStatus').className = 'text-sm text-red-700';
+        return;
+      }
+      const snapshot = ticketSummaryContentSnapshot(summaryText);
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.innerHTML = '<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>Checking edited summary…</span>';
+      button.classList.add('inline-flex', 'items-center', 'gap-2');
+      $('ticketSummaryStatus').textContent = 'Checking the edited summary against the recorded discovery details…';
+      $('ticketSummaryStatus').className = 'text-sm muted';
+      try {
+        const result = await api(
+          `/api/sessions/${session.id}/summary/validate`,
+          { summaryText },
+          'POST',
+          90000
+        );
+        if (result.ready) {
+          if (typeof result.summaryValidationToken !== 'string') {
+            throw new Error('The review passed without a validation token. Please retry the summary check.');
+          }
+          ticketSummaryValidatedSnapshot = snapshot;
+          ticketSummaryValidationToken = result.summaryValidationToken;
+          ticketSummaryRejectedSnapshot = null;
+          ticketSummaryReviewMessage = '';
+          $('ticketSummaryStatus').textContent = 'The edited summary passed the final review and is ready to submit.';
+          $('ticketSummaryStatus').className = 'text-sm text-emerald-700';
+        } else {
+          ticketSummaryValidatedSnapshot = null;
+          ticketSummaryValidationToken = null;
+          ticketSummaryRejectedSnapshot = snapshot;
+          const issues = result.issues || [];
+          ticketSummaryReviewMessage = issues.length
+            ? `Please revise these specific items:\n${issues.map(issue => `• ${issue}`).join('\n')}`
+            : 'The summary did not pass the content review. Please clarify the scope and align it with the recorded discovery details.';
+        }
+      } catch (error) {
+        ticketSummaryValidatedSnapshot = null;
+        ticketSummaryValidationToken = null;
+        ticketSummaryRejectedSnapshot = snapshot;
+        ticketSummaryReviewMessage = error.message;
+      } finally {
+        button.removeAttribute('aria-busy');
+        button.innerHTML = 'Run final summary check';
+        button.classList.remove('inline-flex', 'items-center', 'gap-2');
+        updateEditedSummaryState();
+      }
+    }
+
+    function setDiscoveryReviewExpanded(expanded) {
+      $('reviewContentPanel').classList.toggle('hidden', !expanded);
+      $('reviewContentToggle').setAttribute('aria-expanded', String(expanded));
+      $('reviewContentToggle').textContent = expanded ? 'Hide discovery details' : 'Show discovery details';
+    }
+    function showDiscoveryReviewToggle() {
+      $('reviewContentToggle').classList.remove('hidden');
+    }
+
     function preview() {
       show('workspace', false);
       show('review', true);
+      setDiscoveryReviewExpanded(true);
+      $('reviewContentToggle').classList.add('hidden');
       const host = $('reviewContent');
       host.innerHTML = '';
       $('submitTicketBtn').disabled = true;
       $('validationResults').classList.add('hidden');
+      $('ticketSummaryPanel').classList.add('hidden');
+      $('ticketSummaryReadView').innerHTML = '';
+      $('ticketSummaryTextInput').value = '';
+      $('ticketSummaryStatus').textContent = '';
+      ticketSummaryBaseline = null;
+      ticketSummaryBaselineText = '';
+      ticketSummaryText = '';
+      ticketSummaryEditMode = false;
+      ticketSummaryValidationToken = null;
+      ticketSummaryBaselineValidationToken = null;
+      ticketSummaryValidatedSnapshot = null;
+      ticketSummaryRejectedSnapshot = null;
+      ticketSummaryReviewMessage = '';
       session.validationPassed = false;
 
       const summary = document.createElement('div');
@@ -2149,13 +2413,50 @@
       const btn = $("validateBtn");
       btn.disabled = true;
       btn.setAttribute("aria-busy", "true");
-      btn.innerHTML = '<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>Checking completeness…</span>';
+      btn.innerHTML = '<span class="loading-spinner loading-spinner-sm" aria-hidden="true"></span><span>Checking completeness and summary…</span>';
       btn.classList.add("inline-flex", "items-center", "gap-2");
       $("validationResults").classList.remove("hidden");
       $("validationResults").textContent = "Checking required information, unresolved items and possible contradictions…";
       try {
+        await persistSessionNow();
         const result = await publicApi("/api/validate-intake", session);
         session.validationPassed = result.canSubmit !== false;
+        let summaryLoad = null;
+        if (session.validationPassed && !ticketSummaryBaseline) {
+          try {
+            summaryLoad = {
+              value: await api(
+                `/api/sessions/${session.id}/summary`,
+                undefined,
+                "GET",
+                180000
+              )
+            };
+          } catch (error) {
+            summaryLoad = { error };
+          }
+        }
+        if (
+          session.validationPassed &&
+          !ticketSummaryBaseline &&
+          summaryLoad &&
+          !summaryLoad.error &&
+          (
+            summaryLoad.value?.summaryValidated !== true ||
+            typeof summaryLoad.value?.summaryValidationToken !== 'string'
+          )
+        ) {
+          summaryLoad = { error: new Error("The generated ticket summary did not pass its final content review.") };
+        }
+        const currentSummary = ticketSummarySnapshot($("ticketSummaryTextInput").value);
+        const currentSummaryContent = ticketSummaryContentSnapshot(currentSummary);
+        const baselineSummaryContent = ticketSummaryContentSnapshot(ticketSummaryBaselineText);
+        const editedSummaryPending = Boolean(
+          ticketSummaryBaseline &&
+            currentSummaryContent !== baselineSummaryContent &&
+            currentSummaryContent !== ticketSummaryValidatedSnapshot
+        );
+        const summaryReviewBlocked = Boolean(summaryLoad?.error || editedSummaryPending);
         session.validationReport = result;
         save();
         const warnings = result.warnings || [];
@@ -2163,7 +2464,9 @@
         const blocking = result.blockingIssues || [];
         const clientFollowUps = result.clientFollowUps || [];
         let html = session.validationPassed
-          ? '<div class="font-bold text-emerald-700">Validation review completed. You may now submit the ticket.</div>'
+          ? summaryReviewBlocked
+            ? '<div class="font-bold text-amber-700">Discovery completeness passed, but the ticket summary still needs to pass its final content review. You may not submit it yet.</div>'
+            : '<div class="font-bold text-emerald-700">Validation review completed. You may now submit the ticket.</div>'
           : '<div class="font-bold text-red-700">Submission is on hold. Please correct the date issues below, edit the affected answers, and run the check again.</div>';
         if (blocking.length)
           html += '<div class="mt-3 text-red-700"><b>Required corrections:</b><ul class="list-disc pl-5 mt-1">' +
@@ -2180,14 +2483,60 @@
         if (warnings.length)
           html += '<div class="mt-3 text-amber-700"><b>Items to review:</b><ul class="list-disc pl-5">' +
             warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join("") + '</ul></div>';
-        if (!warnings.length && !missing.length && !clientFollowUps.length) html += '<p class="mt-2">No outstanding issues were identified.</p>';
+        if (!warnings.length && !missing.length && !clientFollowUps.length) html += '<p class="mt-2">No outstanding discovery-level issues were identified.</p>';
         html += session.validationPassed
-          ? '<p class="mt-3 text-sm font-semibold">The ticket can be submitted. Any client follow-up items will be clearly listed in Zendesk.</p>'
+          ? summaryLoad?.error
+            ? '<p class="mt-3 text-sm font-semibold text-red-700">The generated summary was not approved. Retry the final check to generate and review it again.</p>'
+            : editedSummaryPending
+              ? '<p class="mt-3 text-sm font-semibold text-red-700">Run the final summary check on your edits before submission is enabled.</p>'
+              : '<p class="mt-3 text-sm font-semibold">The discovery completeness check and generated ticket summary both passed. Any client follow-up items will be clearly listed in Zendesk.</p>'
           : '<p class="mt-3 text-sm font-semibold text-red-700">The submit button will remain disabled until the date corrections pass validation.</p>';
         $("validationResults").innerHTML = html;
-        $("submitTicketBtn").disabled = !session.validationPassed;
+        if (!session.validationPassed) {
+          ticketSummaryBaseline = null;
+          ticketSummaryBaselineText = '';
+          ticketSummaryText = '';
+          ticketSummaryValidationToken = null;
+          ticketSummaryBaselineValidationToken = null;
+          ticketSummaryValidatedSnapshot = null;
+          $("ticketSummaryPanel").classList.add("hidden");
+          $("submitTicketBtn").disabled = true;
+        } else if (summaryLoad?.error) {
+          ticketSummaryBaseline = null;
+          ticketSummaryBaselineText = '';
+          ticketSummaryText = '';
+          ticketSummaryValidationToken = null;
+          ticketSummaryBaselineValidationToken = null;
+          ticketSummaryValidatedSnapshot = null;
+          $("ticketSummaryPanel").classList.add("hidden");
+          $("submitTicketBtn").disabled = true;
+          $("validationResults").innerHTML += `<p class="mt-3 text-red-700 whitespace-pre-line">The generated summary was not approved for preview or submission:\n${escapeHtml(summaryLoad.error.message)}\nRetry the final check.</p>`;
+        } else {
+          try {
+            if (!ticketSummaryBaseline) await loadEditableTicketSummary(summaryLoad.value);
+            else updateEditedSummaryState();
+            setDiscoveryReviewExpanded(false);
+            showDiscoveryReviewToggle();
+          } catch (summaryError) {
+            ticketSummaryBaseline = null;
+            ticketSummaryBaselineText = '';
+            ticketSummaryText = '';
+            ticketSummaryValidationToken = null;
+            ticketSummaryBaselineValidationToken = null;
+            $("ticketSummaryPanel").classList.add("hidden");
+            $("submitTicketBtn").disabled = true;
+            $("validationResults").innerHTML += `<p class="mt-3 text-red-700">Completeness passed, but the ticket summary preview could not be displayed: ${escapeHtml(summaryError.message)}. Retry the check.</p>`;
+          }
+        }
       } catch (e) {
         session.validationPassed = false;
+        ticketSummaryBaseline = null;
+        ticketSummaryBaselineText = '';
+        ticketSummaryText = '';
+        ticketSummaryValidationToken = null;
+        ticketSummaryBaselineValidationToken = null;
+        ticketSummaryValidatedSnapshot = null;
+        $("ticketSummaryPanel").classList.add("hidden");
         $("submitTicketBtn").disabled = true;
         $("validationResults").textContent = e.message + " Please retry the final validation review.";
       } finally {
@@ -2330,6 +2679,13 @@
       askNext();
     };
     $("validateBtn").onclick = runFinalValidation;
+    $('reviewContentToggle').onclick = () => {
+      const expanded = $('reviewContentToggle').getAttribute('aria-expanded') !== 'true';
+      setDiscoveryReviewExpanded(expanded);
+    };
+    $('ticketSummaryTextInput').addEventListener('input', updateEditedSummaryState);
+    $('editTicketSummaryBtn').onclick = toggleTicketSummaryEdit;
+    $('validateEditedSummaryBtn').onclick = runEditedSummaryValidation;
     $("reviewBtn").onclick = preview;
     $("closeReviewBtn").onclick = () => {
       show("review", false);
@@ -2341,6 +2697,28 @@
         $("submitStatus").textContent = "Run the final validation review before submitting. Warnings will not prevent submission.";
         return;
       }
+      if (!ticketSummaryBaseline) {
+        $("submitStatus").textContent = "The ticket summary preview is not available. Run the final completeness check again.";
+        return;
+      }
+      const summaryText = ticketSummarySnapshot($('ticketSummaryTextInput').value);
+      const summarySnapshot = ticketSummaryContentSnapshot(summaryText);
+      const summaryBaselineSnapshot = ticketSummaryContentSnapshot(ticketSummaryBaselineText);
+      const summaryIsEdited = summarySnapshot !== summaryBaselineSnapshot;
+      const summaryTextChanged = summaryText !== ticketSummaryBaselineText;
+      const summaryInputIssues = summaryIsEdited ? ticketSummaryInputIssues(summaryText) : [];
+      if (summaryInputIssues.length) {
+        $("ticketSummaryStatus").textContent = summaryInputIssues.join(" ");
+        $("ticketSummaryStatus").className = "text-sm text-red-700";
+        $("submitTicketBtn").disabled = true;
+        return;
+      }
+      if (summaryIsEdited && summarySnapshot !== ticketSummaryValidatedSnapshot) {
+        $("ticketSummaryStatus").textContent = "Run the final summary check after editing before you can submit.";
+        $("ticketSummaryStatus").className = "text-sm text-amber-700";
+        $("submitTicketBtn").disabled = true;
+        return;
+      }
       if (!(await confirmTicketSubmission())) return;
       const btn = $("submitTicketBtn");
       btn.disabled = true;
@@ -2349,7 +2727,12 @@
       btn.classList.add("inline-flex", "items-center", "gap-2");
       $("submitStatus").textContent = "Sending the discovery details to Zendesk. Please keep this page open…";
       try {
-        const r = await api("/api/submit-intake", { sessionId: session.id });
+        const r = await api("/api/submit-intake", {
+          sessionId: session.id,
+          summary: ticketSummaryBaseline,
+          summaryText: summaryTextChanged ? summaryText : null,
+          summaryValidationToken: ticketSummaryValidationToken
+        }, "POST", 120000);
         session.status = "submitted";
         try {
           await api(`/api/sessions/${session.id}`, { status: "submitted" }, "PATCH");
@@ -2358,12 +2741,16 @@
           console.warn("Ticket was created, but the session status could not be refreshed:", statusError);
         }
         $("submitStatus").textContent = "Ticket submitted successfully.";
-        // Use the exact structured summary that the backend used to compose this Zendesk ticket.
+        // Use the exact summary that the backend used to compose this Zendesk ticket.
         await showTicketSubmittedDialog(r.ticketId, r.zendeskUrl, r.summary || {});
         returnToDiscoveryHome();
       } catch (e) {
         $("submitStatus").textContent = e.message;
-        btn.disabled = false;
+        if (summaryIsEdited) {
+          ticketSummaryValidatedSnapshot = null;
+          updateEditedSummaryState();
+        }
+        btn.disabled = summaryIsEdited;
         btn.removeAttribute("aria-busy");
         btn.innerHTML = "Confirm and submit to Zendesk";
         btn.classList.remove("inline-flex", "items-center", "gap-2");
@@ -2979,6 +3366,9 @@
       }
     });
     function renderSessionSummary(summary) {
+      if (typeof summary.text === "string") {
+        return `<div class="chat whitespace-pre-wrap">${escapeHtml(summary.text)}</div>`;
+      }
       const sections = [
         ["Project objective", summary.objective],
         ["Business requirements", summary.businessRequirements],

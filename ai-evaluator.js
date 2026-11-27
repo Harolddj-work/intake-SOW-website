@@ -33,6 +33,36 @@ function makeClient() {
   if (provider === 'mock' || !process.env.OPENAI_API_KEY) return null;
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 35000, maxRetries: 0 });
 }
+function parseStructuredJsonResponse(response, operation) {
+  const reason = response.incomplete_details?.reason || response.status || 'unknown status';
+  const output = response.output_text || '';
+  if (response.status === 'incomplete' || response.incomplete_details) {
+    const error = new Error(`AI ${operation} response was incomplete (${reason}; ${output.length} output characters).`);
+    error.retryable = true;
+    throw error;
+  }
+  try {
+    return JSON.parse(output);
+  } catch {
+    const error = new Error(`AI ${operation} response was not valid JSON (status: ${reason}; ${output.length} output characters).`);
+    error.retryable = true;
+    throw error;
+  }
+}
+async function createStructuredJsonResponse(client, request, operation, retryOutputTokens) {
+  const response = await client.responses.create(request);
+  try {
+    return parseStructuredJsonResponse(response, operation);
+  } catch (error) {
+    if (!error.retryable) throw error;
+    console.warn(`${error.message} Retrying once with a larger output allowance.`);
+    const retry = await client.responses.create({
+      ...request,
+      max_output_tokens: retryOutputTokens
+    });
+    return parseStructuredJsonResponse(retry, operation);
+  }
+}
 function classifyClientDecision(answer) {
   const value = String(answer || '').trim();
   // Requests for the team to propose a solution are unresolved client inputs, not confirmed decisions.
@@ -514,4 +544,60 @@ async function validateSession({ session }) {
   }
 }
 
-module.exports = { nextQuestion, evaluateAnswer, validateSession, validateTimelineAnswers, uncoveredItems, allItems, MAX_FOLLOW_UPS_PER_ITEM };
+async function validateEditedSummary({ session, summary }) {
+  const client = makeClient();
+  if (!client) throw new Error('AI summary validation is unavailable. Configure the AI service and try again.');
+
+  const compactAnswers = (Array.isArray(session.answers) ? session.answers : []).slice(-100).map(a => ({
+    checkpointId: a.checkpointId,
+    question: String(a.question || '').slice(0, 1200),
+    answer: String(a.answer || '').slice(0, 2500),
+    mainPoint: String(a.mainPoint || a.evaluation?.mainPoint || '').slice(0, 1200),
+    status: a.status,
+    reason: String(a.reason || '').slice(0, 500),
+    coveredItemIds: a.coveredItemIds || []
+  }));
+  const result = await createStructuredJsonResponse(client, {
+    model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+    instructions: 'You are a narrow quality-control reviewer for an internal presales Zendesk summary. This is NOT a discovery completeness review and NOT a client-follow-up generator. The recorded client answers are the sole source of truth. Review only the submitted summary for (1) factual accuracy, (2) material omission or distortion of information that is actually present in the source, (3) unsupported claims, (4) contradictions within the summary or against the source, and (5) readability or obvious formatting defects. Do not create, suggest, or rewrite client follow-up questions. Do not add requirements for roles, owners, workflow, reporting, integrations, support arrangements, or other details unless the source explicitly states them and the summary materially misrepresents them. Source information already recorded as unknown, proposed, delegated, or pending approval must remain described with that same status; do not treat it as an error merely because it is unresolved. Preserve the distinction between approved/proposed targets and confirmed requirements. Do not penalize section ordering, concise wording, empty optional sections, or details placed in another section. For dates, compare the exact source dates and their chronology; flag a date only if the summary misstates it or if the source itself contains an explicit contradiction that the summary misrepresents. If prior checker feedback is supplied, treat it only as a correction list for summary defects and reject any item that is outside this narrow review scope or not supported by the source. Return ready=true and an empty issues array when the summary accurately and clearly represents the source. When not ready, return only specific summary corrections, not follow-up questions.',
+    input: JSON.stringify({
+      project: {
+        projectName: session.projectName,
+        companyName: session.companyName,
+        contactName: session.contactName,
+        projectType: session.projectType,
+        projectDescription: session.projectDescription
+      },
+      answers: compactAnswers,
+      checkpointNotes: session.checkpointNotes || {},
+      editedSummary: summary
+    }),
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'edited_summary_review',
+        strict: true,
+        schema: {
+          type: 'object',
+          properties: {
+            ready: { type: 'boolean' },
+            issues: { type: 'array', items: { type: 'string' } }
+          },
+          required: ['ready', 'issues'],
+          additionalProperties: false
+        }
+      }
+    },
+    max_output_tokens: 1400
+  }, 'edited summary review', 2800);
+  const issues = Array.isArray(result.issues)
+    ? result.issues.map(issue => String(issue).trim().slice(0, 500)).filter(Boolean)
+    : [];
+  const ready = result.ready === true && issues.length === 0;
+  if (!ready && !issues.length) {
+    issues.push('The summary did not pass the content review. Please clarify the scope and align it with the recorded discovery details.');
+  }
+  return { ready, issues };
+}
+
+module.exports = { nextQuestion, evaluateAnswer, validateSession, validateEditedSummary, validateTimelineAnswers, uncoveredItems, allItems, MAX_FOLLOW_UPS_PER_ITEM, createStructuredJsonResponse };
